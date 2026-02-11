@@ -1,0 +1,14 @@
+# Core — Claude API client
+anthropic>=0.79.0
+
+# Document parsing
+python-docx>=1.2.0
+
+# Environment variable management
+python-dotenv>=1.2.1
+
+# HTTP client (Serper.dev recruiter search)
+requests>=2.32.5
+
+# Fallback search engine (DuckDuckGo)
+duckduckgo-search>=8.1.1
