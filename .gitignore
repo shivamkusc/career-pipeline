@@ -1,0 +1,26 @@
+# Environment & secrets
+.env
+
+# Outputs (generated per run)
+outputs/
+
+# Inputs (personal resume, JD, style sample)
+inputs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# LaTeX artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
