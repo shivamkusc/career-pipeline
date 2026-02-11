@@ -1,0 +1,102 @@
+<article>
+    <!-- Summary card above tabs -->
+    <div class="summary-card">
+        <div class="summary-info">
+            <h3>{{ analysis.company_name }} &mdash; {{ analysis.role_title }}</h3>
+            {% if analysis.location %}
+                <small>{{ analysis.location }}</small>
+            {% endif %}
+        </div>
+        <div class="summary-badges">
+            {% set score = ats.get('score', 0) %}
+            {% if score >= 0.75 %}
+                <span class="badge badge-green">ATS {{ (score * 100) | int }}%</span>
+            {% elif score >= 0.5 %}
+                <span class="badge badge-yellow">ATS {{ (score * 100) | int }}%</span>
+            {% else %}
+                <span class="badge badge-red">ATS {{ (score * 100) | int }}%</span>
+            {% endif %}
+
+            {% set overall = validation.get('overall', 'N/A') %}
+            {% if overall == 'PASS' %}
+                <span class="badge badge-green">{{ overall }}</span>
+            {% elif overall == 'REVIEW' %}
+                <span class="badge badge-yellow">{{ overall }}</span>
+            {% else %}
+                <span class="badge badge-red">{{ overall }}</span>
+            {% endif %}
+        </div>
+        <div class="summary-downloads">
+            {% if has_resume_pdf %}
+                <a href="/download/{{ job_id }}/resume" role="button" class="outline" title="Download Resume PDF">Resume PDF</a>
+            {% endif %}
+            {% if has_cover_pdf %}
+                <a href="/download/{{ job_id }}/cover_letter" role="button" class="outline" title="Download Cover Letter PDF">Cover Letter PDF</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+        <button class="tab active"
+                hx-get="/tab/{{ job_id }}/resume"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Resume
+        </button>
+        <button class="tab"
+                hx-get="/tab/{{ job_id }}/cover"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Cover Letter
+        </button>
+        <button class="tab"
+                hx-get="/tab/{{ job_id }}/outreach"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Outreach
+        </button>
+        <button class="tab"
+                hx-get="/tab/{{ job_id }}/recruiters"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Recruiters
+        </button>
+        <button class="tab"
+                hx-get="/tab/{{ job_id }}/quality"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Quality
+        </button>
+        <button class="tab"
+                hx-get="/tab/{{ job_id }}/analysis"
+                hx-target="#tab-content"
+                hx-swap="innerHTML"
+                onclick="setActiveTab(this)">
+            Analysis
+        </button>
+    </div>
+
+    <div id="tab-content">
+        {% include "partials/resume.html" %}
+    </div>
+</article>
+
+<script>
+function setActiveTab(el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function copyText(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        navigator.clipboard.writeText(el.innerText);
+        showToast('Copied to clipboard!');
+    }
+}
+</script>

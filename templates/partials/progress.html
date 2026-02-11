@@ -1,0 +1,43 @@
+<article id="progress-card" hx-ext="sse" sse-connect="/stream/{{ job_id }}">
+    <header>
+        <h3>Pipeline Running</h3>
+        <small id="progress-counter" sse-swap="progress" hx-swap="innerHTML">0 / 7 stages complete</small>
+    </header>
+
+    <div sse-swap="progressbar" hx-swap="innerHTML">
+        <progress value="0" max="7"></progress>
+    </div>
+
+    <div class="progress-stages">
+        <div sse-swap="analyze" class="stage-pending">
+            <span class="stage-icon spinner-active">&#9711;</span>
+            <span class="stage-label">Step 1 of 7 &mdash; Analyzing job description & resume...</span>
+        </div>
+        <div sse-swap="tailor" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 2 of 7 &mdash; Tailoring resume...</span>
+        </div>
+        <div sse-swap="write" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 3 of 7 &mdash; Writing cover letter & outreach...</span>
+        </div>
+        <div sse-swap="validate" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 4 of 7 &mdash; Validating for hallucinations...</span>
+        </div>
+        <div sse-swap="ats" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 5 of 7 &mdash; Computing ATS score...</span>
+        </div>
+        <div sse-swap="recruiters" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 6 of 7 &mdash; Searching for recruiters...</span>
+        </div>
+        <div sse-swap="pdf" class="stage-pending">
+            <span class="stage-icon">&#9711;</span>
+            <span class="stage-label">Step 7 of 7 &mdash; Building PDF documents...</span>
+        </div>
+    </div>
+
+    <div sse-swap="done"></div>
+</article>

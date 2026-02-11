@@ -1,0 +1,31 @@
+<div class="tab-panel">
+    <h4>Potential Recruiters at {{ analysis.company_name }}
+        {% if recruiters %}
+            <span class="badge badge-blue">{{ recruiters | length }}</span>
+        {% endif %}
+    </h4>
+
+    {% if recruiters %}
+        <div class="recruiter-list">
+            {% for r in recruiters %}
+            <article class="recruiter-card">
+                <header>
+                    <strong>{{ r.get('name', 'Unknown') }}</strong>
+                </header>
+                <p class="recruiter-snippet">{{ r.get('snippet', '') }}</p>
+                {% if r.get('link') and r.get('link') != '#' %}
+                    <a href="{{ r.get('link') }}" target="_blank" rel="noopener">View LinkedIn Profile</a>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No recruiters found automatically.</p>
+            <a href="https://www.linkedin.com/search/results/people/?keywords={{ analysis.company_name | urlencode }}%20recruiter&origin=GLOBAL_SEARCH_HEADER"
+               target="_blank" rel="noopener" role="button" class="outline">
+                Search LinkedIn for "{{ analysis.company_name }} recruiter"
+            </a>
+        </div>
+    {% endif %}
+</div>

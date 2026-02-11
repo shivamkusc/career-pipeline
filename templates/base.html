@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1095c1">
+    <title>Career Pipeline</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+</head>
+<body>
+    <header class="container">
+        <nav>
+            <ul>
+                <li><strong>Career Pipeline</strong></li>
+            </ul>
+            <ul>
+                <li><a href="/">New Run</a></li>
+                <li>
+                    <button class="dark-mode-toggle outline secondary" onclick="toggleDarkMode()" title="Toggle dark mode">
+                        <span id="theme-icon">&#9789;</span>
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="container">
+        <small>Career Pipeline &mdash; AI-powered application materials</small>
+    </footer>
+    <div id="toast-container"></div>
+    <script>
+    function toggleDarkMode() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        document.getElementById('theme-icon').innerHTML = next === 'dark' ? '&#9788;' : '&#9789;';
+        document.querySelector('meta[name="theme-color"]').content = next === 'dark' ? '#13171f' : '#1095c1';
+    }
+    (function() {
+        const saved = localStorage.getItem('theme');
+        if (saved) {
+            document.documentElement.setAttribute('data-theme', saved);
+            document.getElementById('theme-icon').innerHTML = saved === 'dark' ? '&#9788;' : '&#9789;';
+        }
+    })();
+    function showToast(message) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    </script>
+</body>
+</html>

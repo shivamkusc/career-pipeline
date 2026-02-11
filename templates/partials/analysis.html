@@ -1,0 +1,80 @@
+<div class="tab-panel">
+    <div class="analysis-header">
+        <h4>{{ analysis.company_name }} &mdash; {{ analysis.role_title }}</h4>
+        {% if analysis.location %}
+            <small>{{ analysis.location }}</small>
+        {% endif %}
+    </div>
+
+    {% if analysis.hard_skills %}
+    <h5>Hard Skills</h5>
+    <div class="keyword-list">
+        {% for skill in analysis.hard_skills %}
+            <span class="badge badge-green">{{ skill }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analysis.soft_skills %}
+    <h5>Soft Skills</h5>
+    <div class="keyword-list">
+        {% for skill in analysis.soft_skills %}
+            <span class="badge badge-blue">{{ skill }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analysis.key_responsibilities %}
+    <h5>Key Responsibilities</h5>
+    <ol>
+        {% for resp in analysis.key_responsibilities %}
+            <li>{{ resp }}</li>
+        {% endfor %}
+    </ol>
+    {% endif %}
+
+    {% if analysis.my_differentiators %}
+    <h5>My Differentiators</h5>
+    <ul>
+        {% for d in analysis.my_differentiators %}
+            <li>{{ d }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if analysis.nice_to_haves %}
+    <h5>Nice-to-Haves</h5>
+    <div class="keyword-list">
+        {% for item in analysis.nice_to_haves %}
+            <span class="badge badge-yellow">{{ item }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analysis.keyword_matches %}
+    <h5>Keyword Matches</h5>
+    <div class="keyword-list">
+        {% for kw in analysis.keyword_matches %}
+            <span class="badge badge-green">{{ kw }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analysis.keyword_gaps %}
+    <h5>Keyword Gaps</h5>
+    <div class="keyword-list">
+        {% for kw in analysis.keyword_gaps %}
+            <span class="badge badge-red">{{ kw }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if analysis.research_notes %}
+    <h5>Research Notes</h5>
+    <div class="text-preview">
+        {% for para in analysis.research_notes.split('\n\n') %}
+            <p>{{ para }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

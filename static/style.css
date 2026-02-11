@@ -1,0 +1,695 @@
+/* Career Pipeline — Custom styles on top of Pico CSS */
+
+/* Required field indicator */
+.required {
+    color: var(--pico-del-color);
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    display: none;
+    opacity: 0.6;
+    font-size: 0.9em;
+    margin-left: 0.5rem;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: inline;
+}
+
+/* ─── Dark mode toggle ─── */
+.dark-mode-toggle {
+    width: auto;
+    padding: 0.3rem 0.6rem;
+    margin: 0;
+    font-size: 1.1rem;
+    line-height: 1;
+    border-radius: var(--pico-border-radius);
+}
+
+/* ─── Footer ─── */
+footer.container {
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: 2rem;
+    opacity: 0.6;
+}
+
+/* ─── Toast notifications ─── */
+#toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--pico-primary);
+    color: #fff;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--pico-border-radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ─── Drag-and-drop zone ─── */
+.drop-zone {
+    border: 2px dashed var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+}
+
+.drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.drop-zone-text {
+    margin: 0;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--pico-primary);
+    background: color-mix(in srgb, var(--pico-primary) 8%, transparent);
+}
+
+.drop-zone.has-file {
+    border-color: var(--pico-ins-color);
+    border-style: solid;
+}
+
+.drop-zone.has-file .drop-zone-text {
+    display: none;
+}
+
+.file-name {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--pico-ins-color);
+    word-break: break-all;
+}
+
+/* ─── Character counter ─── */
+.char-count {
+    display: block;
+    text-align: right;
+    opacity: 0.6;
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* ─── Progress stages ─── */
+.progress-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.stage-pending {
+    opacity: 0.5;
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--pico-muted-border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.stage-done {
+    color: var(--pico-ins-color);
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--pico-ins-color);
+    font-weight: 500;
+}
+
+.stage-icon {
+    margin-right: 0.3rem;
+    display: inline-block;
+}
+
+.stage-label {
+    font-size: 0.95rem;
+}
+
+/* Spinning animation for active stage */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spinner-active {
+    animation: spin 1.2s linear infinite;
+    display: inline-block;
+}
+
+/* ─── Summary card (results header) ─── */
+.summary-card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.summary-info {
+    flex: 1 1 auto;
+    min-width: 200px;
+}
+
+.summary-info h3 {
+    margin-bottom: 0.2rem;
+}
+
+.summary-badges {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.summary-downloads {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.summary-downloads a[role="button"] {
+    margin: 0;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* ─── Tabs ─── */
+.tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--pico-muted-border-color);
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    color: var(--pico-muted-color);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    border-radius: 0;
+    width: auto;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.tab:hover {
+    color: var(--pico-color);
+    background: none;
+}
+
+.tab.active {
+    color: var(--pico-primary);
+    border-bottom-color: var(--pico-primary);
+    font-weight: 600;
+}
+
+.tab-panel {
+    padding: 0.5rem 0;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ─── Badges ─── */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0.15rem;
+}
+
+.badge-green {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-yellow {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-red {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.badge-blue {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+/* Dark mode badge overrides */
+[data-theme="dark"] .badge-green {
+    background: #1a3a2a;
+    color: #75d89e;
+}
+
+[data-theme="dark"] .badge-yellow {
+    background: #3a3215;
+    color: #f0d060;
+}
+
+[data-theme="dark"] .badge-red {
+    background: #3a1a1e;
+    color: #f09090;
+}
+
+[data-theme="dark"] .badge-blue {
+    background: #152a3a;
+    color: #70c0d8;
+}
+
+/* ─── ATS visual bar ─── */
+.ats-visual-bar {
+    position: relative;
+    height: 1.5rem;
+    background: var(--pico-muted-border-color);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.ats-bar-fill {
+    height: 100%;
+    border-radius: 0.75rem;
+    transition: width 0.5s ease;
+}
+
+.ats-bar-fill.ats-green { background: #28a745; }
+.ats-bar-fill.ats-yellow { background: #ffc107; }
+.ats-bar-fill.ats-red { background: #dc3545; }
+
+.ats-bar-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* ─── LinkedIn character bar ─── */
+.linkedin-char-bar-container {
+    margin: 0.5rem 0 0.75rem;
+}
+
+.linkedin-char-bar {
+    height: 0.5rem;
+    background: var(--pico-muted-border-color);
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+}
+
+.linkedin-char-fill {
+    height: 100%;
+    border-radius: 0.25rem;
+    transition: width 0.3s ease;
+}
+
+.linkedin-char-fill.li-green { background: #28a745; }
+.linkedin-char-fill.li-yellow { background: #ffc107; }
+.linkedin-char-fill.li-red { background: #dc3545; }
+
+/* ─── Section headers (outreach) ─── */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.section-header h4 {
+    margin: 0;
+}
+
+.section-icon {
+    font-size: 1.3rem;
+}
+
+/* ─── Email subject ─── */
+.email-subject {
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--pico-card-background-color);
+    border-left: 3px solid var(--pico-primary);
+    border-radius: var(--pico-border-radius);
+}
+
+/* ─── Stats cards row ─── */
+.stats-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    flex: 1 1 0;
+    min-width: 80px;
+    text-align: center;
+    padding: 0.75rem;
+    border-radius: var(--pico-border-radius);
+    border: 1px solid var(--pico-muted-border-color);
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-card.stat-danger .stat-number { color: #dc3545; }
+.stat-card.stat-warning .stat-number { color: #ffc107; }
+.stat-card.stat-safe .stat-number { color: #28a745; }
+
+.stat-card.stat-danger { border-color: #f8d7da; }
+.stat-card.stat-warning { border-color: #fff3cd; }
+.stat-card.stat-safe { border-color: #d4edda; }
+
+[data-theme="dark"] .stat-card.stat-danger { border-color: #3a1a1e; }
+[data-theme="dark"] .stat-card.stat-warning { border-color: #3a3215; }
+[data-theme="dark"] .stat-card.stat-safe { border-color: #1a3a2a; }
+
+/* ─── Positive message ─── */
+.positive-message {
+    color: var(--pico-ins-color);
+    font-weight: 500;
+}
+
+/* ─── Keyword list ─── */
+.keyword-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+}
+
+/* ─── Text preview blocks ─── */
+.text-preview {
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+}
+
+.text-preview p {
+    margin-bottom: 0.75rem;
+}
+
+.text-preview p:last-child {
+    margin-bottom: 0;
+}
+
+/* ─── Copy button ─── */
+.copy-btn {
+    width: auto;
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* ─── PDF preview ─── */
+.pdf-preview {
+    margin-bottom: 1rem;
+}
+
+.pdf-iframe {
+    width: 100%;
+    height: 600px;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+/* ─── Recruiter cards ─── */
+.recruiter-card {
+    margin-bottom: 0.5rem;
+}
+
+.recruiter-card header {
+    padding-bottom: 0.3rem;
+}
+
+.recruiter-snippet {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ─── Empty state ─── */
+.empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    opacity: 0.8;
+}
+
+.empty-state a[role="button"] {
+    margin-top: 0.5rem;
+}
+
+/* ─── Analysis header ─── */
+.analysis-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+.analysis-header h4 {
+    margin-bottom: 0.2rem;
+}
+
+/* ─── Notice / error ─── */
+.notice {
+    padding: 1rem;
+    border-radius: var(--pico-border-radius);
+    background: #fff3cd;
+    color: #856404;
+    margin: 1rem 0;
+}
+
+.notice.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+[data-theme="dark"] .notice {
+    background: #3a3215;
+    color: #f0d060;
+}
+
+[data-theme="dark"] .notice.error {
+    background: #3a1a1e;
+    color: #f09090;
+}
+
+/* ─── File upload warning ─── */
+.file-warning {
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #dc3545;
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ─── File history list ─── */
+.file-history {
+    margin-top: 0.5rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+}
+
+.file-history-label {
+    display: block;
+    padding: 0.35rem 0.6rem;
+    background: var(--pico-card-background-color);
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    font-weight: 600;
+    color: var(--pico-muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.7rem;
+}
+
+.file-history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    transition: background 0.15s, border-color 0.15s;
+    gap: 0.4rem;
+}
+
+.file-history-item:last-of-type {
+    border-bottom: none;
+}
+
+.file-history-item:hover {
+    background: color-mix(in srgb, var(--pico-primary) 6%, transparent);
+}
+
+.file-history-item.selected {
+    background: color-mix(in srgb, var(--pico-ins-color) 10%, transparent);
+    border-left: 3px solid var(--pico-ins-color);
+}
+
+.file-history-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.file-history-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-history-meta {
+    font-size: 0.72rem;
+    color: var(--pico-muted-color);
+}
+
+.file-history-delete {
+    background: none;
+    border: none;
+    padding: 0.1rem 0.4rem;
+    margin: 0;
+    cursor: pointer;
+    color: var(--pico-muted-color);
+    font-size: 1.1rem;
+    line-height: 1;
+    border-radius: var(--pico-border-radius);
+    width: auto;
+    opacity: 0.5;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.file-history-delete:hover {
+    opacity: 1;
+    color: #dc3545;
+    background: none;
+}
+
+.file-history-clear {
+    display: block;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    text-align: center;
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+/* ─── JD clear link ─── */
+.jd-clear-link {
+    float: right;
+    font-size: 0.8rem;
+    font-weight: normal;
+}
+
+/* ─── Form layout tweaks ─── */
+details summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ─── Quality table ─── */
+table {
+    font-size: 0.9rem;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+    .tabs {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .summary-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .stats-row {
+        flex-direction: row;
+    }
+
+    .stat-card {
+        min-width: 60px;
+    }
+
+    .pdf-iframe {
+        height: 400px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+}

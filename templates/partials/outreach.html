@@ -1,0 +1,35 @@
+<div class="tab-panel">
+    <div class="section-header">
+        <span class="section-icon">&#9993;</span>
+        <h4>Cold Email</h4>
+    </div>
+    {% set email_text = narratives.get('cold_email', 'No email generated.') %}
+    {% set email_lines = email_text.split('\n') %}
+    {% if email_lines[0].lower().startswith('subject:') %}
+        <div class="email-subject">{{ email_lines[0] }}</div>
+        <div class="text-preview" id="email-text">{{ email_lines[1:] | join('\n') }}</div>
+    {% else %}
+        <div class="text-preview" id="email-text">{{ email_text }}</div>
+    {% endif %}
+    <button class="copy-btn secondary outline" onclick="copyText('email-text')">Copy Email</button>
+
+    <hr>
+
+    <div class="section-header">
+        <span class="section-icon">&#128101;</span>
+        <h4>LinkedIn Message</h4>
+    </div>
+    {% set linkedin_text = narratives.get('linkedin_msg', 'No LinkedIn message generated.') %}
+    {% set li_len = linkedin_text | length %}
+    <div class="text-preview" id="linkedin-text">{{ linkedin_text }}</div>
+
+    <div class="linkedin-char-bar-container">
+        <div class="linkedin-char-bar">
+            <div class="linkedin-char-fill {% if li_len < 250 %}li-green{% elif li_len < 290 %}li-yellow{% else %}li-red{% endif %}"
+                 style="width: {{ [li_len / 300 * 100, 100] | min }}%">
+            </div>
+        </div>
+        <small>{{ li_len }} / 300 characters</small>
+    </div>
+    <button class="copy-btn secondary outline" onclick="copyText('linkedin-text')">Copy Message</button>
+</div>

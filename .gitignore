@@ -7,6 +7,9 @@ outputs/
 # Inputs (personal resume, JD, style sample)
 inputs/
 
+# Persistent upload history
+uploads/
+
 # OS junk
 .DS_Store
 Thumbs.db

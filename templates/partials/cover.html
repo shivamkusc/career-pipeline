@@ -1,0 +1,20 @@
+<div class="tab-panel">
+    <h4>Cover Letter</h4>
+
+    {% if has_cover_pdf %}
+        <a href="/download/{{ job_id }}/cover_letter" role="button">Download Cover Letter PDF</a>
+    {% else %}
+        <p><small>PDF not available (LaTeX compilation may have failed)</small></p>
+    {% endif %}
+
+    {% set cover_text = narratives.get('cover_letter', 'No cover letter generated.') %}
+    <div class="text-preview" id="cover-text">
+        {% for para in cover_text.split('\n\n') %}
+            <p>{{ para }}</p>
+        {% endfor %}
+    </div>
+    {% set word_count = cover_text.split() | length %}
+    <small>{{ word_count }} words</small>
+    <br>
+    <button class="copy-btn secondary outline" onclick="copyText('cover-text')">Copy Text</button>
+</div>

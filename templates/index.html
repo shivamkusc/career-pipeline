@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="form-wrapper">
+    <article>
+        <header>
+            <h2>Upload & Run Pipeline</h2>
+            <p>Upload your LaTeX resume and paste a job description to generate tailored application materials.</p>
+        </header>
+
+        <form id="upload-form"
+              hx-post="/run"
+              hx-target="#pipeline-output"
+              hx-swap="innerHTML"
+              hx-indicator="#spinner"
+              hx-disabled-elt="#run-btn"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('upload-form').closest('article').style.display='none';localStorage.setItem('cp_last_jd',document.getElementById('jd-textarea').value)}"
+              enctype="multipart/form-data">
+
+            <!-- Hidden fields for history selections -->
+            <input type="hidden" name="resume_id" id="resume-id-input" value="">
+            <input type="hidden" name="style_id" id="style-id-input" value="">
+
+            <div class="grid">
+                <!-- Resume upload -->
+                <div>
+                    <label>Resume (.tex) <span class="required">*</span></label>
+                    <div class="drop-zone" id="resume-drop-zone">
+                        <input type="file" name="resume_file" accept=".tex"
+                               id="resume-input"
+                               onchange="onResumeFileChange(this)">
+                        <p class="drop-zone-text">
+                            Drag & drop your .tex file here<br>
+                            <small>or click to browse</small>
+                        </p>
+                        <p class="file-name" id="resume-file-name"></p>
+                        <p class="file-warning" id="resume-warning" style="display:none"></p>
+                    </div>
+
+                    {% if resumes %}
+                    <div class="file-history" id="resume-history">
+                        <small class="file-history-label">Recent Resumes</small>
+                        {% for r in resumes %}
+                        <div class="file-history-item" data-id="{{ r.id }}" onclick="selectResume(this, '{{ r.id }}')">
+                            <div class="file-history-info">
+                                <span class="file-history-name">{{ r.original_filename }}</span>
+                                <span class="file-history-meta">{{ r.size_display }} &middot; {{ r.saved_at }}</span>
+                            </div>
+                            <button type="button" class="file-history-delete" onclick="event.stopPropagation(); deleteUpload('resumes', '{{ r.id }}', this)" title="Remove">&times;</button>
+                        </div>
+                        {% endfor %}
+                        <a href="#" class="file-history-clear" id="resume-clear" style="display:none" onclick="clearResumeSelection(event)">Clear selection</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Style sample upload -->
+                <div>
+                    <label>Style Sample (.docx) <small>optional</small></label>
+                    <div class="drop-zone" id="style-drop-zone">
+                        <input type="file" name="style_file" accept=".docx"
+                               id="style-input"
+                               onchange="onStyleFileChange(this)">
+                        <p class="drop-zone-text">
+                            Drag & drop .docx style sample<br>
+                            <small>or click to browse</small>
+                        </p>
+                        <p class="file-name" id="style-file-name"></p>
+                        <p class="file-warning" id="style-warning" style="display:none"></p>
+                    </div>
+
+                    {% if styles %}
+                    <div class="file-history" id="style-history">
+                        <small class="file-history-label">Recent Style Samples</small>
+                        {% for s in styles %}
+                        <div class="file-history-item" data-id="{{ s.id }}" onclick="selectStyle(this, '{{ s.id }}')">
+                            <div class="file-history-info">
+                                <span class="file-history-name">{{ s.original_filename }}</span>
+                                <span class="file-history-meta">{{ s.size_display }} &middot; {{ s.saved_at }}</span>
+                            </div>
+                            <button type="button" class="file-history-delete" onclick="event.stopPropagation(); deleteUpload('styles', '{{ s.id }}', this)" title="Remove">&times;</button>
+                        </div>
+                        {% endfor %}
+                        <a href="#" class="file-history-clear" id="style-clear" style="display:none" onclick="clearStyleSelection(event)">Clear selection</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <label>
+                Job Description <span class="required">*</span>
+                <a href="#" class="jd-clear-link" id="jd-clear" style="display:none" onclick="clearJD(event)">clear</a>
+                <textarea name="jd_text" rows="8" id="jd-textarea"
+                          placeholder="Paste the full job description here — include responsibilities, qualifications, and any details about the company..."
+                          oninput="updateCharCount()"></textarea>
+            </label>
+            <small class="char-count" id="char-count">0 characters</small>
+
+            <details>
+                <summary>Or upload JD as a file</summary>
+                <label>
+                    <input type="file" name="jd_file" accept=".txt,.pdf,.md">
+                </label>
+            </details>
+
+            <button type="submit" id="run-btn">
+                Run Pipeline
+            </button>
+            <span id="spinner" class="htmx-indicator">Starting pipeline...</span>
+        </form>
+    </article>
+</div>
+
+<div id="pipeline-output"></div>
+<div id="results-area"></div>
+
+<script>
+// ─── Character counter ───
+function updateCharCount() {
+    const ta = document.getElementById('jd-textarea');
+    const counter = document.getElementById('char-count');
+    const clearLink = document.getElementById('jd-clear');
+    const len = ta.value.length;
+    counter.textContent = len.toLocaleString() + ' characters';
+    clearLink.style.display = len > 0 ? 'inline' : 'none';
+}
+
+// ─── JD pre-fill from localStorage ───
+(function() {
+    const saved = localStorage.getItem('cp_last_jd');
+    if (saved) {
+        document.getElementById('jd-textarea').value = saved;
+        updateCharCount();
+    }
+})();
+
+function clearJD(e) {
+    e.preventDefault();
+    document.getElementById('jd-textarea').value = '';
+    localStorage.removeItem('cp_last_jd');
+    updateCharCount();
+}
+
+// ─── File display + validation ───
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function showFileName(input, nameId, warningId) {
+    const nameEl = document.getElementById(nameId);
+    const warnEl = document.getElementById(warningId);
+    warnEl.style.display = 'none';
+    if (input.files.length > 0) {
+        const file = input.files[0];
+        nameEl.textContent = file.name + ' (' + formatFileSize(file.size) + ')';
+        input.closest('.drop-zone').classList.add('has-file');
+        return file;
+    } else {
+        nameEl.textContent = '';
+        input.closest('.drop-zone').classList.remove('has-file');
+        return null;
+    }
+}
+
+function onResumeFileChange(input) {
+    const file = showFileName(input, 'resume-file-name', 'resume-warning');
+    // Clear history selection when picking a new file
+    clearResumeHistoryHighlight();
+    document.getElementById('resume-id-input').value = '';
+    if (file) {
+        // Basic LaTeX validation: read first chunk and check for backslash
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result.substring(0, 500);
+            if (!text.includes('\\')) {
+                const w = document.getElementById('resume-warning');
+                w.textContent = "This doesn't look like a LaTeX file — are you sure?";
+                w.style.display = 'block';
+            }
+        };
+        reader.readAsText(file.slice(0, 500));
+    }
+}
+
+function onStyleFileChange(input) {
+    const file = showFileName(input, 'style-file-name', 'style-warning');
+    // Clear history selection when picking a new file
+    clearStyleHistoryHighlight();
+    document.getElementById('style-id-input').value = '';
+    if (file) {
+        // Basic .docx validation: check for PK zip header
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const arr = new Uint8Array(e.target.result);
+            if (arr.length >= 2 && !(arr[0] === 0x50 && arr[1] === 0x4B)) {
+                const w = document.getElementById('style-warning');
+                w.textContent = "This doesn't look like a .docx file — are you sure?";
+                w.style.display = 'block';
+            }
+        };
+        reader.readAsArrayBuffer(file.slice(0, 4));
+    }
+}
+
+// ─── Resume history selection ───
+function selectResume(el, id) {
+    clearResumeHistoryHighlight();
+    el.classList.add('selected');
+    document.getElementById('resume-id-input').value = id;
+    // Remove required from file input and clear any new file
+    const fileInput = document.getElementById('resume-input');
+    fileInput.removeAttribute('required');
+    fileInput.value = '';
+    document.getElementById('resume-file-name').textContent = '';
+    document.getElementById('resume-warning').style.display = 'none';
+    document.getElementById('resume-drop-zone').classList.remove('has-file');
+    const clearLink = document.getElementById('resume-clear');
+    if (clearLink) clearLink.style.display = 'block';
+}
+
+function clearResumeHistoryHighlight() {
+    document.querySelectorAll('#resume-history .file-history-item').forEach(
+        item => item.classList.remove('selected')
+    );
+}
+
+function clearResumeSelection(e) {
+    e.preventDefault();
+    clearResumeHistoryHighlight();
+    document.getElementById('resume-id-input').value = '';
+    e.target.style.display = 'none';
+}
+
+// ─── Style history selection ───
+function selectStyle(el, id) {
+    clearStyleHistoryHighlight();
+    el.classList.add('selected');
+    document.getElementById('style-id-input').value = id;
+    const fileInput = document.getElementById('style-input');
+    fileInput.value = '';
+    document.getElementById('style-file-name').textContent = '';
+    document.getElementById('style-warning').style.display = 'none';
+    document.getElementById('style-drop-zone').classList.remove('has-file');
+    const clearLink = document.getElementById('style-clear');
+    if (clearLink) clearLink.style.display = 'block';
+}
+
+function clearStyleHistoryHighlight() {
+    document.querySelectorAll('#style-history .file-history-item').forEach(
+        item => item.classList.remove('selected')
+    );
+}
+
+function clearStyleSelection(e) {
+    e.preventDefault();
+    clearStyleHistoryHighlight();
+    document.getElementById('style-id-input').value = '';
+    e.target.style.display = 'none';
+}
+
+// ─── Delete from history ───
+function deleteUpload(category, fileId, btn) {
+    if (!confirm('Remove this file from history?')) return;
+    fetch('/api/uploads/' + category + '/' + fileId, { method: 'DELETE' })
+        .then(resp => {
+            if (resp.ok) {
+                const item = btn.closest('.file-history-item');
+                item.remove();
+                // If that was the selected one, clear the hidden input
+                if (category === 'resumes') {
+                    if (document.getElementById('resume-id-input').value === fileId) {
+                        document.getElementById('resume-id-input').value = '';
+                    }
+                    // Hide history section if empty
+                    const hist = document.getElementById('resume-history');
+                    if (hist && hist.querySelectorAll('.file-history-item').length === 0) {
+                        hist.style.display = 'none';
+                    }
+                } else {
+                    if (document.getElementById('style-id-input').value === fileId) {
+                        document.getElementById('style-id-input').value = '';
+                    }
+                    const hist = document.getElementById('style-history');
+                    if (hist && hist.querySelectorAll('.file-history-item').length === 0) {
+                        hist.style.display = 'none';
+                    }
+                }
+                showToast('File removed from history');
+            }
+        });
+}
+
+// ─── Drag-and-drop handling ───
+document.querySelectorAll('.drop-zone').forEach(zone => {
+    const input = zone.querySelector('input[type="file"]');
+
+    zone.addEventListener('click', (e) => {
+        if (e.target !== input && !e.target.closest('.file-warning')) input.click();
+    });
+
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+    });
+
+    zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drag-over');
+    });
+
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+});
+</script>
+{% endblock %}

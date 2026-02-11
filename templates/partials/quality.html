@@ -1,0 +1,103 @@
+<div class="tab-panel">
+    <h4>Hallucination Check</h4>
+
+    {% set overall = validation.get('overall', 'N/A') %}
+    {% set flags = validation.get('flags', []) %}
+    {% set danger_count = validation.get('danger_count', 0) %}
+    {% set warning_count = validation.get('warning_count', 0) %}
+    {% set safe_count = (flags | length) - danger_count - warning_count %}
+
+    <!-- Summary stats row -->
+    <div class="stats-row">
+        <div class="stat-card stat-danger">
+            <span class="stat-number">{{ danger_count }}</span>
+            <small>Danger</small>
+        </div>
+        <div class="stat-card stat-warning">
+            <span class="stat-number">{{ warning_count }}</span>
+            <small>Warning</small>
+        </div>
+        <div class="stat-card stat-safe">
+            <span class="stat-number">{{ safe_count if safe_count > 0 else 0 }}</span>
+            <small>Safe</small>
+        </div>
+    </div>
+
+    {% if overall == 'PASS' %}
+        <span class="badge badge-green">{{ overall }}</span>
+    {% elif overall == 'REVIEW' %}
+        <span class="badge badge-yellow">{{ overall }}</span>
+    {% else %}
+        <span class="badge badge-red">{{ overall }}</span>
+    {% endif %}
+
+    {% if flags %}
+    <details>
+        <summary>View {{ flags | length }} flag{{ 's' if flags | length != 1 else '' }} in detail</summary>
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Bullet</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flag in flags %}
+                <tr>
+                    <td>
+                        {% if flag.status == 'SAFE' %}
+                            <span class="badge badge-green">{{ flag.status }}</span>
+                        {% elif flag.status == 'WARNING' %}
+                            <span class="badge badge-yellow">{{ flag.status }}</span>
+                        {% else %}
+                            <span class="badge badge-red">{{ flag.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td><small>{{ flag.bullet }}</small></td>
+                    <td><small>{{ flag.reason }}</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% else %}
+        <p class="positive-message">No flags raised &mdash; all content verified as accurate.</p>
+    {% endif %}
+
+    <hr>
+
+    <h4>ATS Keyword Coverage</h4>
+
+    {% set score = ats.get('score', 0) %}
+    {% set score_pct = (score * 100) | int %}
+
+    <div class="ats-visual-bar">
+        <div class="ats-bar-fill {% if score >= 0.75 %}ats-green{% elif score >= 0.5 %}ats-yellow{% else %}ats-red{% endif %}"
+             style="width: {{ score_pct }}%">
+        </div>
+        <span class="ats-bar-label">{{ score_pct }}%</span>
+    </div>
+    <p>
+        <small>({{ ats.get('matched', []) | length }} / {{ ats.get('total_keywords', []) | length }} keywords)</small>
+    </p>
+
+    <div class="grid">
+        <div>
+            <h5>Matched</h5>
+            <div class="keyword-list">
+                {% for kw in ats.get('matched', []) %}
+                    <span class="badge badge-green">{{ kw }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <h5>Missing</h5>
+            <div class="keyword-list">
+                {% for kw in ats.get('missing', []) %}
+                    <span class="badge badge-red">{{ kw }}</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>

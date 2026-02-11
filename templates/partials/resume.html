@@ -1,0 +1,69 @@
+<div class="tab-panel">
+    <div class="grid">
+        <div>
+            <h4>ATS Score</h4>
+            {% set score = ats.get('score', 0) %}
+            {% set score_pct = (score * 100) | int %}
+            <div class="ats-visual-bar">
+                <div class="ats-bar-fill {% if score >= 0.75 %}ats-green{% elif score >= 0.5 %}ats-yellow{% else %}ats-red{% endif %}"
+                     style="width: {{ score_pct }}%">
+                </div>
+                <span class="ats-bar-label">{{ score_pct }}%</span>
+            </div>
+            <small>keyword coverage</small>
+        </div>
+        <div>
+            {% if has_resume_pdf %}
+                <a href="/download/{{ job_id }}/resume" role="button">Download Resume PDF</a>
+            {% else %}
+                <p><small>PDF not available (LaTeX compilation may have failed)</small></p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if has_resume_pdf %}
+    <h4>PDF Preview
+        <button class="outline secondary copy-btn" onclick="togglePreview('resume-preview')">Toggle Preview</button>
+    </h4>
+    <div id="resume-preview" class="pdf-preview" style="display:none;">
+        <iframe src="/preview/{{ job_id }}/resume" class="pdf-iframe"></iframe>
+    </div>
+    {% endif %}
+
+    {% if analysis.my_differentiators %}
+    <h4>Key Strengths for This Role</h4>
+    <ul>
+        {% for d in analysis.my_differentiators %}
+            <li>{{ d }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <h4>Keyword Matches</h4>
+    <div class="keyword-list">
+        {% for kw in ats.get('matched', []) %}
+            <span class="badge badge-green">{{ kw }}</span>
+        {% endfor %}
+    </div>
+
+    {% if ats.get('missing') %}
+    <h4>Keyword Gaps</h4>
+    <div class="keyword-list">
+        {% for kw in ats.get('missing', []) %}
+            <span class="badge badge-red">{{ kw }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <details>
+        <summary>View Tailored LaTeX Source</summary>
+        <pre><code>{{ tailored_latex }}</code></pre>
+    </details>
+</div>
+
+<script>
+function togglePreview(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
