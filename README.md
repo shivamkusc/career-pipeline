@@ -48,7 +48,7 @@ outputs/
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.9+
 - LaTeX distribution with `pdflatex` ([MacTeX](https://www.tug.org/mactex/) on macOS, [TeX Live](https://www.tug.org/texlive/) on Linux)
 
 ### Installation
@@ -71,21 +71,42 @@ SERPER_API_KEY=your_serper_dev_api_key    # optional, enables recruiter search
 - **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com/)
 - **Serper.dev API key** — [serper.dev](https://serper.dev/) (2,500 free searches)
 
-### Input Files
+## Usage
 
-Place these in the `inputs/` directory:
+### Web UI (recommended)
+
+```bash
+python app.py
+```
+
+Open [http://127.0.0.1:5001](http://127.0.0.1:5001) in your browser.
+
+**Features:**
+- Drag-and-drop upload for `.tex` resume and `.docx` style sample
+- Paste or upload a job description
+- Real-time progress with stage timing (SSE-powered)
+- Tabbed results: Resume, Cover Letter, Outreach, Recruiters, Quality, Analysis
+- Inline PDF preview, ATS score bar, LinkedIn character counter
+- Dark mode toggle
+- **File history** — previously uploaded resumes and style samples are remembered across sessions (content-hash deduplication, persistent storage in `uploads/`)
+- **JD memory** — your last job description is pre-filled on page load
+- Upload validation — warns if a file doesn't look like LaTeX or .docx
+- Descriptive download filenames (e.g., `Resume_Google_SWE.pdf`)
+- Toast notifications for copy/delete actions
+
+### CLI
+
+```bash
+python main.py
+```
+
+Place input files in `inputs/`:
 
 | File | Format | Required |
 |------|--------|----------|
 | `master_resume.tex` | LaTeX | Yes |
 | `job_description.txt` | Plain text | Yes |
 | `style_sample.docx` | Word doc | No (improves cover letter voice matching) |
-
-## Usage
-
-```bash
-python main.py
-```
 
 The pipeline will:
 1. Analyze the job description against your resume
@@ -99,6 +120,7 @@ The pipeline will:
 ## Tech Stack
 
 - **LLM**: Claude Sonnet 4.5 via Anthropic API (prompt caching, exponential backoff retries)
+- **Web UI**: Flask + HTMX + Pico CSS (SSE for real-time progress)
 - **Resume format**: LaTeX → PDF via `pdflatex`
 - **Cover letter**: Plaintext → LaTeX template → PDF
 - **Search**: Serper.dev (Google SERP proxy) + DuckDuckGo fallback
@@ -110,3 +132,4 @@ The pipeline will:
 - **Temperature tuning** per stage — low for analysis/validation, higher for creative writing
 - **Hallucination guard** — strict rules prevent the LLM from adding new bullet points, metrics, or experiences not in the original resume
 - **LaTeX escape rules** baked into prompts to prevent compilation failures (`%` → `\%`, `&` → `\&`, etc.)
+- **Persistent upload storage** — files saved to `uploads/` with a JSON manifest; content-hash dedup prevents duplicates
