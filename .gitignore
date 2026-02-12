@@ -22,6 +22,9 @@ __pycache__/
 venv/
 env/
 
+# Application tracker database
+applications.db
+
 # LaTeX artifacts
 *.aux
 *.log

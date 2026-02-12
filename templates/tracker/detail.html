@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article>
+    <header>
+        <nav>
+            <ul><li><a href="/tracker">&larr; Back to Tracker</a></li></ul>
+            <ul><li>
+                <button class="outline secondary" hx-delete="/api/tracker/application/{{ app.id }}"
+                        hx-confirm="Delete this application?"
+                        hx-swap="none"
+                        hx-on::after-request="window.location='/tracker'">Delete</button>
+            </li></ul>
+        </nav>
+        <h2>{{ app.company }} &mdash; {{ app.role }}</h2>
+        <div class="summary-badges">
+            <span class="badge badge-blue">{{ app.status }}</span>
+            {% if app.ats_score %}
+                <span class="badge badge-green">ATS {{ (app.ats_score * 100) | int }}%</span>
+            {% endif %}
+            <small>Applied {{ app.date_applied.isoformat() if app.date_applied else 'N/A' }} ({{ days_since }} days ago)</small>
+        </div>
+    </header>
+
+    <div class="grid">
+        <div>
+            <label>Status
+                <select hx-patch="/api/tracker/application/{{ app.id }}"
+                        hx-include="this"
+                        name="status"
+                        hx-trigger="change" hx-swap="none"
+                        hx-on::after-request="showToast('Status updated')">
+                    {% for s in statuses %}
+                    <option value="{{ s }}" {% if app.status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div>
+            <label>Salary Range
+                <input type="text" value="{{ app.salary_range or '' }}"
+                       hx-patch="/api/tracker/application/{{ app.id }}"
+                       hx-trigger="blur changed" hx-swap="none"
+                       name="salary_range"
+                       hx-on::after-request="showToast('Saved')">
+            </label>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div>
+            <label>Application Method
+                <input type="text" value="{{ app.application_method or '' }}"
+                       hx-patch="/api/tracker/application/{{ app.id }}"
+                       hx-trigger="blur changed" hx-swap="none"
+                       name="application_method"
+                       hx-on::after-request="showToast('Saved')">
+            </label>
+        </div>
+        <div>
+            <label>Job Posting URL
+                <input type="url" value="{{ app.job_posting_url or '' }}"
+                       hx-patch="/api/tracker/application/{{ app.id }}"
+                       hx-trigger="blur changed" hx-swap="none"
+                       name="job_posting_url"
+                       hx-on::after-request="showToast('Saved')">
+            </label>
+        </div>
+    </div>
+
+    <label>Notes
+        <textarea rows="3"
+                  hx-patch="/api/tracker/application/{{ app.id }}"
+                  hx-trigger="blur changed" hx-swap="none"
+                  name="notes"
+                  hx-on::after-request="showToast('Saved')">{{ app.notes or '' }}</textarea>
+    </label>
+
+    {% if app.job_posting_url %}
+    <p><a href="{{ app.job_posting_url }}" target="_blank" rel="noopener">View Job Posting &rarr;</a></p>
+    {% endif %}
+
+    <hr>
+
+    <!-- Follow-ups -->
+    <h4>Follow-ups</h4>
+    <div id="followups-list">
+        {% include "partials/tracker_followups.html" %}
+    </div>
+    <details>
+        <summary>Add Follow-up</summary>
+        <form hx-post="/api/tracker/follow-up" hx-target="#followups-list" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){this.reset(); showToast('Follow-up added')}">
+            <input type="hidden" name="application_id" value="{{ app.id }}">
+            <div class="grid">
+                <label>Date
+                    <input type="date" name="scheduled_date" required>
+                </label>
+                <label>Type
+                    <select name="action_type">
+                        {% for t in follow_up_types %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+            <label>Notes
+                <input type="text" name="notes" placeholder="Optional notes...">
+            </label>
+            <button type="submit" class="outline">Add Follow-up</button>
+        </form>
+    </details>
+
+    <hr>
+
+    <!-- Interviews -->
+    <h4>Interviews</h4>
+    <div id="interviews-list">
+        {% include "partials/tracker_interviews.html" %}
+    </div>
+    <details>
+        <summary>Add Interview</summary>
+        <form hx-post="/api/tracker/interview" hx-target="#interviews-list" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){this.reset(); showToast('Interview added')}">
+            <input type="hidden" name="application_id" value="{{ app.id }}">
+            <div class="grid">
+                <label>Date &amp; Time
+                    <input type="datetime-local" name="date_time" required>
+                </label>
+                <label>Type
+                    <select name="interview_type">
+                        {% for t in interview_types %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+            <label>Interviewer Names
+                <input type="text" name="interviewer_names" placeholder="e.g. Jane Smith, John Doe">
+            </label>
+            <label>Prep Notes
+                <textarea name="prep_notes" rows="2" placeholder="Topics to prepare..."></textarea>
+            </label>
+            <button type="submit" class="outline">Add Interview</button>
+        </form>
+    </details>
+
+    <hr>
+
+    <!-- Documents -->
+    {% if app.documents %}
+    <h4>Documents Sent</h4>
+    <table>
+        <thead><tr><th>Type</th><th>Date</th></tr></thead>
+        <tbody>
+        {% for doc in app.documents %}
+        <tr>
+            <td>{{ doc.document_type }}</td>
+            <td>{{ doc.sent_date.isoformat() if doc.sent_date else '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Pipeline link -->
+    {% if pipeline_data %}
+    <hr>
+    <h4>Pipeline Results</h4>
+    <p><a href="/results/{{ app.job_id }}">View generated materials &rarr;</a></p>
+    {% endif %}
+
+    <hr>
+
+    <!-- Export -->
+    <div class="tracker-export-actions">
+        <button class="outline secondary" onclick="copyNotionRow()">Copy as Notion Row</button>
+        <button class="outline secondary" onclick="copyAirtableRow()">Copy as Airtable Row</button>
+    </div>
+</article>
+
+<script>
+function copyNotionRow() {
+    var row = '| {{ app.company }} | {{ app.role }} | {{ app.date_applied }} | {{ app.status }} | {{ (app.ats_score * 100) | int if app.ats_score else "N/A" }}% | {{ (app.notes or "")[:50] | replace("'", "") }} |';
+    navigator.clipboard.writeText(row);
+    showToast('Copied Notion row');
+}
+
+function copyAirtableRow() {
+    var row = '{{ app.company }}\t{{ app.role }}\t{{ app.date_applied }}\t{{ app.status }}\t{{ (app.ats_score * 100) | int if app.ats_score else "" }}\t{{ (app.notes or "")[:50] | replace("'", "") }}';
+    navigator.clipboard.writeText(row);
+    showToast('Copied Airtable row');
+}
+</script>
+{% endblock %}

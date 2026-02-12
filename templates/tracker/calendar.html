@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article>
+    <header>
+        <nav>
+            <ul><li><a href="/tracker">&larr; Back to Tracker</a></li></ul>
+            <ul>
+                <li><a href="/tracker/calendar?month={{ prev_month }}&year={{ prev_year }}">&larr; Prev</a></li>
+                <li><strong>{{ month_name }} {{ year }}</strong></li>
+                <li><a href="/tracker/calendar?month={{ next_month }}&year={{ next_year }}">Next &rarr;</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="calendar-legend">
+        <span class="calendar-event event-follow-up">Follow-up</span>
+        <span class="calendar-event event-interview">Interview</span>
+    </div>
+
+    <div class="calendar-grid">
+        <div class="calendar-header-cell">Mon</div>
+        <div class="calendar-header-cell">Tue</div>
+        <div class="calendar-header-cell">Wed</div>
+        <div class="calendar-header-cell">Thu</div>
+        <div class="calendar-header-cell">Fri</div>
+        <div class="calendar-header-cell">Sat</div>
+        <div class="calendar-header-cell">Sun</div>
+
+        {% for week in weeks %}
+            {% for cell in week %}
+                {% if cell %}
+                <div class="calendar-cell {% if cell.is_today %}today{% endif %}">
+                    <div class="calendar-date">{{ cell.day }}</div>
+                    {% for event in cell.events %}
+                    <a href="/tracker/application/{{ event.app_id }}" class="calendar-event event-{{ event.type }}" title="{{ event.label }}">
+                        {{ event.label }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="calendar-cell empty"></div>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</article>
+{% endblock %}

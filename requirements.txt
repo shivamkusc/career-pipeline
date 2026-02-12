@@ -15,3 +15,6 @@ duckduckgo-search>=8.1.1
 
 # Web UI
 flask>=3.1.0
+
+# Application tracker (SQLite ORM)
+sqlalchemy>=2.0.0

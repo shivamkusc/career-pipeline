@@ -18,6 +18,7 @@
             </ul>
             <ul>
                 <li><a href="/">New Run</a></li>
+                <li><a href="/tracker">Tracker</a></li>
                 <li>
                     <button class="dark-mode-toggle outline secondary" onclick="toggleDarkMode()" title="Toggle dark mode">
                         <span id="theme-icon">&#9789;</span>
@@ -62,6 +63,47 @@
             setTimeout(() => toast.remove(), 300);
         }, 2000);
     }
+    </script>
+
+    <!-- Keyboard shortcuts help modal -->
+    <dialog id="shortcuts-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev" onclick="document.getElementById('shortcuts-modal').close()"></button>
+                <h3>Keyboard Shortcuts</h3>
+            </header>
+            <table>
+                <tbody>
+                    <tr><td><kbd>/</kbd></td><td>Focus JD textarea</td></tr>
+                    <tr><td><kbd>Ctrl+Enter</kbd></td><td>Submit pipeline form</td></tr>
+                    <tr><td><kbd>t</kbd></td><td>Open Tracker</td></tr>
+                    <tr><td><kbd>n</kbd></td><td>New run (home page)</td></tr>
+                    <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
+                </tbody>
+            </table>
+        </article>
+    </dialog>
+
+    <script>
+    document.addEventListener('keydown', function(e) {
+        var tag = e.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+        if (e.key === '/') {
+            e.preventDefault();
+            var ta = document.getElementById('jd-textarea');
+            if (ta) ta.focus();
+        } else if (e.key === 't') {
+            window.location.href = '/tracker';
+        } else if (e.key === 'n') {
+            window.location.href = '/';
+        } else if (e.key === '?') {
+            document.getElementById('shortcuts-modal').showModal();
+        } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            var form = document.getElementById('upload-form');
+            if (form) form.requestSubmit();
+        }
+    });
     </script>
 </body>
 </html>

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article>
+    <header>
+        <nav>
+            <ul><li><a href="/tracker">&larr; Back to Tracker</a></li></ul>
+        </nav>
+        <h2>Application Analytics</h2>
+    </header>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.total }}</span>
+            <small>Total Applications</small>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.avg_response_days }}</span>
+            <small>Avg Response (days)</small>
+        </div>
+        <div class="stat-card stat-safe">
+            <span class="stat-number">{{ analytics.funnel.get('Offer', 0) }}</span>
+            <small>Offers</small>
+        </div>
+        <div class="stat-card stat-danger">
+            <span class="stat-number">{{ analytics.funnel.get('Rejected', 0) }}</span>
+            <small>Rejected</small>
+        </div>
+    </div>
+
+    {% if analytics.conversions %}
+    <h4>Conversion Rates</h4>
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.conversions.get('applied_to_screening', 0) }}%</span>
+            <small>Applied &rarr; Screening</small>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.conversions.get('screening_to_interview', 0) }}%</span>
+            <small>Screening &rarr; Interview</small>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.conversions.get('interview_to_offer', 0) }}%</span>
+            <small>Interview &rarr; Offer</small>
+        </div>
+    </div>
+    {% endif %}
+
+    <h4>Application Funnel</h4>
+    <canvas id="funnel-chart" height="200"></canvas>
+
+    <h4>Weekly Application Volume</h4>
+    <canvas id="volume-chart" height="200"></canvas>
+
+    {% if analytics.day_success %}
+    <h4>Success Rate by Day of Week</h4>
+    <canvas id="day-chart" height="200"></canvas>
+    {% endif %}
+
+    {% if analytics.ats_brackets %}
+    <h4>ATS Score Distribution</h4>
+    <canvas id="ats-chart" height="200"></canvas>
+    {% endif %}
+</article>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+var textColor = isDark ? '#c0c0c0' : '#333';
+
+Chart.defaults.color = textColor;
+Chart.defaults.borderColor = isDark ? '#333' : '#e0e0e0';
+
+// Funnel chart
+var funnelData = {{ analytics.funnel | tojson }};
+new Chart(document.getElementById('funnel-chart'), {
+    type: 'bar',
+    data: {
+        labels: Object.keys(funnelData),
+        datasets: [{
+            data: Object.values(funnelData),
+            backgroundColor: ['#1095c1', '#17a2b8', '#28a745', '#ffc107', '#dc3545', '#6c757d'],
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+});
+
+// Volume chart
+var volumeData = {{ analytics.weekly_volume | tojson }};
+new Chart(document.getElementById('volume-chart'), {
+    type: 'line',
+    data: {
+        labels: volumeData.map(function(d) { return d.label; }),
+        datasets: [{
+            label: 'Applications',
+            data: volumeData.map(function(d) { return d.count; }),
+            borderColor: '#1095c1',
+            backgroundColor: 'rgba(16, 149, 193, 0.1)',
+            fill: true,
+            tension: 0.3,
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+    }
+});
+
+// Day of week chart
+{% if analytics.day_success %}
+var dayData = {{ analytics.day_success | tojson }};
+new Chart(document.getElementById('day-chart'), {
+    type: 'bar',
+    data: {
+        labels: Object.keys(dayData),
+        datasets: [{
+            label: 'Success Rate %',
+            data: Object.values(dayData),
+            backgroundColor: '#28a745',
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v + '%'; } } } }
+    }
+});
+{% endif %}
+
+// ATS brackets chart
+{% if analytics.ats_brackets %}
+var atsData = {{ analytics.ats_brackets | tojson }};
+new Chart(document.getElementById('ats-chart'), {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(atsData),
+        datasets: [{
+            data: Object.values(atsData),
+            backgroundColor: ['#dc3545', '#ffc107', '#17a2b8', '#28a745'],
+        }]
+    },
+    options: {
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

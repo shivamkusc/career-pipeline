@@ -1,0 +1,50 @@
+{% if app.follow_ups %}
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Notes</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for fu in app.follow_ups | sort(attribute='scheduled_date') %}
+        <tr>
+            <td>
+                {{ fu.scheduled_date.isoformat() if fu.scheduled_date else '' }}
+                {% if not fu.completed and fu.scheduled_date < today_date %}
+                    <span class="badge badge-red" title="Overdue">Overdue</span>
+                {% endif %}
+            </td>
+            <td>{{ fu.action_type }}</td>
+            <td>{{ fu.notes or '' }}</td>
+            <td>
+                {% if fu.completed %}
+                    <span class="badge badge-green">Done</span>
+                {% else %}
+                    <button class="outline copy-btn"
+                            hx-patch="/api/tracker/follow-up/{{ fu.id }}"
+                            hx-target="#followups-list"
+                            hx-swap="innerHTML"
+                            hx-on::after-request="showToast('Marked complete')">
+                        Mark Done
+                    </button>
+                {% endif %}
+            </td>
+            <td>
+                <button class="outline secondary copy-btn"
+                        hx-delete="/api/tracker/follow-up/{{ fu.id }}"
+                        hx-target="#followups-list"
+                        hx-swap="innerHTML"
+                        hx-confirm="Delete this follow-up?"
+                        hx-on::after-request="showToast('Deleted')">&times;</button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><small>No follow-ups scheduled yet.</small></p>
+{% endif %}

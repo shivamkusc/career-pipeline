@@ -1,0 +1,8 @@
+{% if success %}
+<div class="notice" style="background: #d4edda; color: #155724;">
+    Added <strong>{{ company }} &mdash; {{ role }}</strong> to tracker.
+    <a href="/tracker/application/{{ app_id }}">View in tracker &rarr;</a>
+</div>
+{% else %}
+<div class="notice error">Failed to add to tracker.</div>
+{% endif %}

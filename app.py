@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import json
+from datetime import date, datetime
 
 from flask import (
     Flask,
@@ -33,6 +34,18 @@ from ai_engine import (
 )
 from pdf_builder import build_pdf, build_cover_letter_pdf
 from recruiter_hunt import find_recruiters
+from tracker import (
+    init_db, get_db, VALID_STATUSES, VALID_FOLLOW_UP_TYPES, VALID_INTERVIEW_TYPES,
+    create_application, get_application, get_all_applications,
+    update_application, delete_application,
+    create_follow_up, mark_follow_up_complete, delete_follow_up,
+    create_interview, update_interview_outcome, delete_interview,
+    create_document_sent,
+    enrich_application,
+    export_csv as tracker_export_csv,
+    export_notion_markdown,
+    get_analytics, get_calendar_data,
+)
 
 app = Flask(__name__)
 
@@ -41,6 +54,15 @@ jobs = {}
 
 TEMP_DIR = os.path.join(tempfile.gettempdir(), "career_pipeline_jobs")
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+# Initialize SQLite database for application tracker
+init_db()
+
+
+@app.context_processor
+def inject_today():
+    """Make today's date available in all templates."""
+    return {"today_date": date.today()}
 
 # ─────────────────────────────────────────────────────────
 # Persistent upload storage
@@ -245,16 +267,26 @@ def run_pipeline_job(job_id, jd, resume_latex, style_path):
         job_dir = os.path.join(TEMP_DIR, job_id)
         os.makedirs(job_dir, exist_ok=True)
 
+        dark_mode = job.get("dark_mode_pdf", False)
+
         # Save resume .tex and compile
+        resume_latex_src = tailored_latex
+        if dark_mode:
+            # Inject dark mode colors after \begin{document}
+            resume_latex_src = tailored_latex.replace(
+                r"\begin{document}",
+                "\\usepackage{xcolor}\n\\begin{document}\n\\pagecolor[HTML]{1a1a2e}\\color[HTML]{e0e0e0}"
+            )
         tex_path = os.path.join(job_dir, "resume.tex")
         with open(tex_path, "w", encoding="utf-8") as f:
-            f.write(tailored_latex)
+            f.write(resume_latex_src)
         build_pdf(tex_path, job_dir)
 
         # Build cover letter PDF
         cover_letter = narratives.get("cover_letter", "")
         if cover_letter:
-            build_cover_letter_pdf(cover_letter, job_dir, "cover_letter")
+            build_cover_letter_pdf(cover_letter, job_dir, "cover_letter",
+                                   dark_mode=dark_mode)
 
         job["timings"]["pdf"] = round(time.time() - t0, 1)
         job["completed_count"] = 7
@@ -337,6 +369,8 @@ def run():
         # Load from history
         style_path = _get_upload_path(style_id, "styles")
 
+    dark_mode_pdf = request.form.get("dark_mode_pdf") == "on"
+
     # Initialize job
     jobs[job_id] = {
         "status": "running",
@@ -350,6 +384,7 @@ def run():
         "error": None,
         "timings": {},
         "completed_count": 0,
+        "dark_mode_pdf": dark_mode_pdf,
     }
 
     # Start background thread
@@ -633,6 +668,326 @@ def preview(job_id, file_type):
         abort(404)
 
     return send_file(file_path, mimetype="application/pdf")
+
+
+# ─────────────────────────────────────────────────────────
+# Application Tracker routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/tracker")
+def tracker_dashboard():
+    """Main tracker dashboard with kanban board."""
+    db = get_db()
+    try:
+        apps = get_all_applications(db)
+        columns = {s: [] for s in VALID_STATUSES}
+        for a in apps:
+            enriched = enrich_application(a)
+            if a.status in columns:
+                columns[a.status].append(enriched)
+        return render_template("tracker/dashboard.html",
+                               columns=columns, statuses=VALID_STATUSES,
+                               today=date.today().isoformat())
+    finally:
+        db.close()
+
+
+@app.route("/tracker/add", methods=["POST"])
+def tracker_add():
+    """Create a new application from form data."""
+    db = get_db()
+    try:
+        date_str = request.form.get("date_applied", "").strip()
+        applied_date = date.fromisoformat(date_str) if date_str else date.today()
+
+        create_application(
+            db,
+            company=request.form.get("company", "").strip(),
+            role=request.form.get("role", "").strip(),
+            date_applied=applied_date,
+            status=request.form.get("status", "Applied"),
+            salary_range=request.form.get("salary_range", "").strip() or None,
+            job_posting_url=request.form.get("job_posting_url", "").strip() or None,
+            application_method=request.form.get("application_method", "").strip() or None,
+            notes=request.form.get("notes", "").strip() or None,
+        )
+        # Redirect back to dashboard (full page refresh)
+        return Response(status=204, headers={"HX-Redirect": "/tracker"})
+    finally:
+        db.close()
+
+
+@app.route("/tracker/add/<job_id>", methods=["POST"])
+def tracker_add_from_pipeline(job_id):
+    """Quick-add from pipeline results. Auto-populates from JobAnalysis."""
+    job = jobs.get(job_id)
+    if not job or job["status"] != "done":
+        return '<div class="notice error">Pipeline job not found or not complete.</div>', 404
+
+    analysis = job["analysis"]
+    ats = job.get("ats", {})
+
+    db = get_db()
+    try:
+        app_record = create_application(
+            db,
+            company=analysis.company_name,
+            role=analysis.role_title,
+            date_applied=date.today(),
+            status="Applied",
+            job_id=job_id,
+            ats_score=ats.get("score"),
+            notes=request.form.get("notes", "").strip() or None,
+            job_posting_url=request.form.get("job_posting_url", "").strip() or None,
+            application_method=request.form.get("application_method", "").strip() or None,
+        )
+
+        # Link documents
+        job_dir = os.path.join(TEMP_DIR, job_id)
+        resume_path = os.path.join(job_dir, "resume.pdf")
+        cover_path = os.path.join(job_dir, "cover_letter.pdf")
+        if os.path.exists(resume_path):
+            create_document_sent(db, application_id=app_record.id,
+                                 document_type="Resume", file_path=resume_path)
+        if os.path.exists(cover_path):
+            create_document_sent(db, application_id=app_record.id,
+                                 document_type="Cover Letter", file_path=cover_path)
+
+        return render_template("partials/add_to_tracker.html",
+                               success=True, app_id=app_record.id,
+                               company=analysis.company_name, role=analysis.role_title)
+    finally:
+        db.close()
+
+
+@app.route("/tracker/application/<int:app_id>")
+def tracker_detail(app_id):
+    """Detailed view of a single application."""
+    db = get_db()
+    try:
+        app_record = get_application(db, app_id)
+        if not app_record:
+            abort(404)
+        enriched = enrich_application(app_record)
+        pipeline_data = None
+        if app_record.job_id and app_record.job_id in jobs:
+            pipeline_data = jobs[app_record.job_id]
+        return render_template("tracker/detail.html",
+                               **enriched, pipeline_data=pipeline_data,
+                               statuses=VALID_STATUSES,
+                               follow_up_types=VALID_FOLLOW_UP_TYPES,
+                               interview_types=VALID_INTERVIEW_TYPES)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/application/<int:app_id>", methods=["PATCH"])
+def tracker_update(app_id):
+    """Update an application (status, notes, etc)."""
+    db = get_db()
+    try:
+        data = request.get_json(silent=True) or {}
+        if not data:
+            data = request.form.to_dict()
+        # Filter out empty strings
+        data = {k: v for k, v in data.items() if v != ""}
+        updated = update_application(db, app_id, **data)
+        if not updated:
+            abort(404)
+        return "", 204
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/application/<int:app_id>", methods=["DELETE"])
+def tracker_delete(app_id):
+    """Delete an application."""
+    db = get_db()
+    try:
+        if delete_application(db, app_id):
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
+
+
+@app.route("/tracker/calendar")
+def tracker_calendar():
+    """Calendar view showing follow-ups and interviews."""
+    db = get_db()
+    try:
+        now = date.today()
+        month = request.args.get("month", now.month, type=int)
+        year = request.args.get("year", now.year, type=int)
+        cal_data = get_calendar_data(db, year, month)
+        return render_template("tracker/calendar.html", **cal_data)
+    finally:
+        db.close()
+
+
+@app.route("/tracker/analytics")
+def tracker_analytics():
+    """Analytics dashboard with charts."""
+    db = get_db()
+    try:
+        data = get_analytics(db)
+        return render_template("tracker/analytics.html", analytics=data)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/follow-up", methods=["POST"])
+def tracker_add_follow_up():
+    """Add a follow-up to an application."""
+    db = get_db()
+    try:
+        app_id = int(request.form.get("application_id"))
+        create_follow_up(
+            db,
+            application_id=app_id,
+            scheduled_date=date.fromisoformat(request.form.get("scheduled_date")),
+            action_type=request.form.get("action_type", "Email Follow-up"),
+            notes=request.form.get("notes", "").strip() or None,
+        )
+        app_record = get_application(db, app_id)
+        return render_template("partials/tracker_followups.html", app=app_record)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/follow-up/<int:fu_id>", methods=["PATCH"])
+def tracker_complete_follow_up(fu_id):
+    """Mark a follow-up as complete."""
+    db = get_db()
+    try:
+        fu = mark_follow_up_complete(db, fu_id)
+        if not fu:
+            abort(404)
+        app_record = get_application(db, fu.application_id)
+        return render_template("partials/tracker_followups.html", app=app_record)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/follow-up/<int:fu_id>", methods=["DELETE"])
+def tracker_delete_follow_up(fu_id):
+    """Delete a follow-up."""
+    db = get_db()
+    try:
+        if delete_follow_up(db, fu_id):
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/interview", methods=["POST"])
+def tracker_add_interview():
+    """Add an interview to an application."""
+    db = get_db()
+    try:
+        app_id = int(request.form.get("application_id"))
+        create_interview(
+            db,
+            application_id=app_id,
+            date_time=datetime.fromisoformat(request.form.get("date_time")),
+            interview_type=request.form.get("interview_type", "Phone"),
+            interviewer_names=request.form.get("interviewer_names", "").strip() or None,
+            prep_notes=request.form.get("prep_notes", "").strip() or None,
+        )
+        app_record = get_application(db, app_id)
+        return render_template("partials/tracker_interviews.html", app=app_record)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/interview/<int:iv_id>", methods=["PATCH"])
+def tracker_update_interview(iv_id):
+    """Update interview outcome."""
+    db = get_db()
+    try:
+        outcome = request.form.get("outcome", "")
+        iv = update_interview_outcome(db, iv_id, outcome)
+        if not iv:
+            abort(404)
+        app_record = get_application(db, iv.application_id)
+        return render_template("partials/tracker_interviews.html", app=app_record)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/interview/<int:iv_id>", methods=["DELETE"])
+def tracker_delete_interview(iv_id):
+    """Delete an interview."""
+    db = get_db()
+    try:
+        if delete_interview(db, iv_id):
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/export/csv")
+def tracker_csv_export():
+    """Export all applications as CSV download."""
+    db = get_db()
+    try:
+        csv_content = tracker_export_csv(db)
+        return Response(
+            csv_content,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=applications.csv"},
+        )
+    finally:
+        db.close()
+
+
+@app.route("/api/tracker/export/notion")
+def tracker_notion_export():
+    """Export as Notion-formatted markdown."""
+    db = get_db()
+    try:
+        md = export_notion_markdown(db)
+        return Response(md, mimetype="text/plain",
+                        headers={"Content-Disposition": "attachment; filename=applications_notion.md"})
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# Quick Regenerate routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/regenerate/<job_id>/cover_letter", methods=["POST"])
+def regenerate_cover_letter(job_id):
+    """Re-generate cover letter using stored pipeline data."""
+    job = jobs.get(job_id)
+    if not job or job["status"] != "done":
+        return '<div class="notice error">Job not found or not complete.</div>', 404
+
+    tailored_latex = job.get("tailored_latex", "")
+    analysis = job.get("analysis")
+    if not analysis:
+        return '<div class="notice error">No analysis data available.</div>', 400
+
+    style_voice = ""
+    narratives = write_narratives(tailored_latex, analysis, style_voice)
+    job["narratives"] = narratives
+
+    job_dir = os.path.join(TEMP_DIR, job_id)
+    cover_letter = narratives.get("cover_letter", "")
+    if cover_letter:
+        build_cover_letter_pdf(cover_letter, job_dir, "cover_letter")
+
+    has_cover_pdf = os.path.exists(os.path.join(job_dir, "cover_letter.pdf"))
+
+    return render_template(
+        "partials/cover.html",
+        job_id=job_id,
+        narratives=narratives,
+        has_cover_pdf=has_cover_pdf,
+    )
 
 
 if __name__ == "__main__":

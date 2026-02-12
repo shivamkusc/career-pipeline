@@ -33,6 +33,8 @@
             {% if has_cover_pdf %}
                 <a href="/download/{{ job_id }}/cover_letter" role="button" class="outline" title="Download Cover Letter PDF">Cover Letter PDF</a>
             {% endif %}
+            <button class="outline" onclick="copyAllContent()">Copy All</button>
+            <button class="outline" onclick="document.getElementById('tracker-add-modal').showModal()">Add to Tracker</button>
         </div>
     </div>
 
@@ -86,6 +88,31 @@
     </div>
 </article>
 
+<!-- Add to Tracker modal -->
+<dialog id="tracker-add-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('tracker-add-modal').close()"></button>
+            <h3>Add to Tracker</h3>
+        </header>
+        <form hx-post="/tracker/add/{{ job_id }}" hx-target="#tracker-add-result" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){showToast('Added to tracker!')}">
+            <p>Adding <strong>{{ analysis.company_name }} &mdash; {{ analysis.role_title }}</strong></p>
+            <label>Job Posting URL
+                <input type="url" name="job_posting_url" placeholder="https://...">
+            </label>
+            <label>Application Method
+                <input type="text" name="application_method" placeholder="e.g. Company website, LinkedIn">
+            </label>
+            <label>Notes
+                <textarea name="notes" rows="2"></textarea>
+            </label>
+            <div id="tracker-add-result"></div>
+            <button type="submit">Add to Tracker</button>
+        </form>
+    </article>
+</dialog>
+
 <script>
 function setActiveTab(el) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -97,6 +124,35 @@ function copyText(id) {
     if (el) {
         navigator.clipboard.writeText(el.innerText);
         showToast('Copied to clipboard!');
+    }
+}
+
+async function copyAllContent() {
+    var parts = [];
+    try {
+        var coverResp = await fetch('/tab/{{ job_id }}/cover');
+        var coverHtml = await coverResp.text();
+        var temp = document.createElement('div');
+        temp.innerHTML = coverHtml;
+        var coverEl = temp.querySelector('#cover-text');
+        if (coverEl) parts.push('=== COVER LETTER ===\n' + coverEl.innerText);
+
+        var outResp = await fetch('/tab/{{ job_id }}/outreach');
+        var outHtml = await outResp.text();
+        temp.innerHTML = outHtml;
+        var emailEl = temp.querySelector('#email-text');
+        if (emailEl) parts.push('=== COLD EMAIL ===\n' + emailEl.innerText);
+        var liEl = temp.querySelector('#linkedin-text');
+        if (liEl) parts.push('=== LINKEDIN MESSAGE ===\n' + liEl.innerText);
+
+        if (parts.length === 0) {
+            showToast('No content to copy');
+            return;
+        }
+        await navigator.clipboard.writeText(parts.join('\n\n'));
+        showToast('All content copied!');
+    } catch (err) {
+        showToast('Copy failed: ' + err.message);
     }
 }
 </script>

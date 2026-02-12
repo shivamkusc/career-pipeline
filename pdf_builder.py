@@ -49,7 +49,7 @@ def build_pdf(tex_path, output_folder):
         return False
 
 
-def build_cover_letter_pdf(text: str, output_folder: str, filename: str = "cover_letter"):
+def build_cover_letter_pdf(text: str, output_folder: str, filename: str = "cover_letter", dark_mode: bool = False):
     """Wrap plain text cover letter in LaTeX and compile to PDF."""
     import re
     from datetime import date
@@ -124,11 +124,16 @@ def build_cover_letter_pdf(text: str, output_folder: str, filename: str = "cover
             else:
                 signoff_tex = f"\\vspace{{1em}}\n{signoff_parts[0]}"
 
+    dark_mode_tex = ""
+    if dark_mode:
+        dark_mode_tex = "\\usepackage{xcolor}\n\\pagecolor[HTML]{1a1a2e}\n\\color[HTML]{e0e0e0}"
+
     template = f"""\\documentclass[11pt,letterpaper]{{article}}
 \\usepackage[top=1in, bottom=1in, left=1in, right=1in]{{geometry}}
 \\usepackage{{parskip}}
 \\usepackage[hidelinks]{{hyperref}}
 \\usepackage[T1]{{fontenc}}
+{dark_mode_tex}
 \\pagestyle{{empty}}
 
 \\begin{{document}}

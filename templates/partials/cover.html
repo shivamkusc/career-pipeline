@@ -17,4 +17,13 @@
     <small>{{ word_count }} words</small>
     <br>
     <button class="copy-btn secondary outline" onclick="copyText('cover-text')">Copy Text</button>
+    <button class="copy-btn outline"
+            hx-post="/regenerate/{{ job_id }}/cover_letter"
+            hx-target="closest .tab-panel"
+            hx-swap="outerHTML"
+            hx-indicator="#regen-spinner"
+            hx-confirm="Regenerate cover letter? This will replace the current one.">
+        Regenerate
+    </button>
+    <span id="regen-spinner" class="htmx-indicator">Regenerating...</span>
 </div>

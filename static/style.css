@@ -662,7 +662,345 @@ table {
     font-size: 0.9rem;
 }
 
+/* ─── Tracker header ─── */
+.tracker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tracker-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tracker-actions button,
+.tracker-actions a[role="button"] {
+    margin: 0;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* ─── Tracker filters ─── */
+.tracker-filters {
+    margin-bottom: 1rem;
+}
+
+.tracker-filters input[type="search"] {
+    max-width: 300px;
+}
+
+/* ─── Kanban board ─── */
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    min-height: 400px;
+}
+
+.kanban-column {
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 0.5rem;
+    min-width: 170px;
+    transition: border-color 0.2s;
+}
+
+.kanban-column.kanban-drop-target {
+    border-color: var(--pico-primary);
+    border-style: dashed;
+    background: color-mix(in srgb, var(--pico-primary) 5%, transparent);
+}
+
+.kanban-column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    margin-bottom: 0.5rem;
+}
+
+.kanban-column-header h5 {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ─── Kanban cards ─── */
+.kanban-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.kanban-card {
+    background: var(--pico-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 0.6rem;
+    cursor: grab;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.kanban-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.kanban-card.dragging {
+    opacity: 0.5;
+    border-style: dashed;
+}
+
+.kanban-card.card-overdue {
+    border-left: 3px solid #dc3545;
+}
+
+.kanban-card.card-stale {
+    border-left: 3px solid #ffc107;
+}
+
+.kanban-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.kanban-card-header strong {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.kanban-card-role {
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kanban-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.3rem;
+}
+
+.kanban-card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-action-link {
+    font-size: 0.8rem;
+}
+
+/* ─── Card dropdown menu ─── */
+.card-action-dropdown {
+    position: relative;
+}
+
+.card-action-btn {
+    background: none;
+    border: none;
+    padding: 0.1rem 0.3rem;
+    cursor: pointer;
+    font-size: 1.1rem;
+    width: auto;
+    color: var(--pico-muted-color);
+    margin: 0;
+    border-radius: var(--pico-border-radius);
+}
+
+.card-action-btn:hover {
+    background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    min-width: 150px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    text-decoration: none;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+.dropdown-menu a:last-child {
+    border-bottom: none;
+}
+
+.dropdown-menu a:hover {
+    background: color-mix(in srgb, var(--pico-primary) 8%, transparent);
+}
+
+/* ─── Calendar ─── */
+.calendar-legend {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: var(--pico-muted-border-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+}
+
+.calendar-header-cell {
+    background: var(--pico-card-background-color);
+    padding: 0.4rem;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.calendar-cell {
+    background: var(--pico-background-color);
+    padding: 0.4rem;
+    min-height: 80px;
+}
+
+.calendar-cell.today {
+    background: color-mix(in srgb, var(--pico-primary) 8%, transparent);
+}
+
+.calendar-cell.empty {
+    background: var(--pico-card-background-color);
+    opacity: 0.5;
+}
+
+.calendar-date {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.calendar-event {
+    display: block;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+    margin-bottom: 0.15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: none;
+}
+
+.calendar-event.event-follow-up {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.calendar-event.event-interview {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+[data-theme="dark"] .calendar-event.event-follow-up {
+    background: #3a3215;
+    color: #f0d060;
+}
+
+[data-theme="dark"] .calendar-event.event-interview {
+    background: #152a3a;
+    color: #70c0d8;
+}
+
+/* ─── JD template dropdown ─── */
+.jd-template-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.jd-template-row label {
+    margin-bottom: 0;
+}
+
+.jd-template-dropdown {
+    width: auto;
+    max-width: 200px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* ─── Keyboard shortcut kbd ─── */
+kbd {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.85rem;
+    font-family: monospace;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 0.2rem;
+    box-shadow: 0 1px 0 var(--pico-muted-border-color);
+}
+
+/* ─── Tracker export actions ─── */
+.tracker-export-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tracker-export-actions button {
+    margin: 0;
+}
+
+/* ─── Summary downloads extra buttons ─── */
+.summary-downloads button {
+    margin: 0;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
 /* ─── Responsive ─── */
+@media (max-width: 1200px) {
+    .kanban-board {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .tabs {
         -ms-overflow-style: none;
@@ -691,5 +1029,31 @@ table {
 
     .grid {
         grid-template-columns: 1fr !important;
+    }
+
+    .kanban-board {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .tracker-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .calendar-cell {
+        min-height: 60px;
+    }
+
+    .calendar-event {
+        font-size: 0.6rem;
+    }
+
+    .jd-template-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .jd-template-dropdown {
+        max-width: 100%;
     }
 }

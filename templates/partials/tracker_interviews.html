@@ -1,0 +1,55 @@
+{% if app.interviews %}
+<table>
+    <thead>
+        <tr>
+            <th>Date/Time</th>
+            <th>Type</th>
+            <th>Interviewers</th>
+            <th>Outcome</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for iv in app.interviews | sort(attribute='date_time') %}
+        <tr>
+            <td>{{ iv.date_time.strftime('%b %d, %Y %I:%M %p') if iv.date_time else '' }}</td>
+            <td>{{ iv.interview_type }}</td>
+            <td>{{ iv.interviewer_names or '' }}</td>
+            <td>
+                <select hx-patch="/api/tracker/interview/{{ iv.id }}"
+                        hx-include="this"
+                        name="outcome"
+                        hx-target="#interviews-list"
+                        hx-swap="innerHTML"
+                        hx-trigger="change"
+                        hx-on::after-request="showToast('Outcome updated')">
+                    <option value="" {% if not iv.outcome %}selected{% endif %}>Pending</option>
+                    <option value="Passed" {% if iv.outcome == 'Passed' %}selected{% endif %}>Passed</option>
+                    <option value="Failed" {% if iv.outcome == 'Failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </td>
+            <td>
+                <button class="outline secondary copy-btn"
+                        hx-delete="/api/tracker/interview/{{ iv.id }}"
+                        hx-swap="none"
+                        hx-confirm="Delete this interview?"
+                        hx-on::after-request="location.reload()">&times;</button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% if app.interviews | selectattr('prep_notes') | list %}
+<details>
+    <summary>Prep Notes</summary>
+    {% for iv in app.interviews if iv.prep_notes %}
+    <div class="text-preview">
+        <strong>{{ iv.interview_type }} ({{ iv.date_time.strftime('%b %d') if iv.date_time else '' }}):</strong>
+        <p>{{ iv.prep_notes }}</p>
+    </div>
+    {% endfor %}
+</details>
+{% endif %}
+{% else %}
+<p><small>No interviews scheduled yet.</small></p>
+{% endif %}

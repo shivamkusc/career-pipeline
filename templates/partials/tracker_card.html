@@ -1,0 +1,41 @@
+<div class="kanban-card {% if urgency == 'overdue' %}card-overdue{% elif urgency == 'stale' %}card-stale{% endif %}"
+     draggable="true"
+     ondragstart="onDragStart(event, '{{ app.id }}')"
+     ondragend="onDragEnd(event)"
+     data-app-id="{{ app.id }}">
+    <div class="kanban-card-header">
+        <strong>{{ app.company }}</strong>
+        {% if app.ats_score %}
+            {% set score_pct = (app.ats_score * 100) | int %}
+            <span class="badge {% if score_pct >= 75 %}badge-green{% elif score_pct >= 50 %}badge-yellow{% else %}badge-red{% endif %}">
+                {{ score_pct }}%
+            </span>
+        {% endif %}
+    </div>
+    <div class="kanban-card-role">{{ app.role }}</div>
+    <div class="kanban-card-meta">
+        <small>{{ days_since }}d ago</small>
+        {% if overdue_followup %}
+            <span class="badge badge-red" title="Overdue follow-up">!</span>
+        {% endif %}
+    </div>
+    <div class="kanban-card-actions">
+        <a href="/tracker/application/{{ app.id }}" class="card-action-link">Details</a>
+        <div class="card-action-dropdown">
+            <button type="button" class="card-action-btn" onclick="toggleDropdown(this)">&#8943;</button>
+            <div class="dropdown-menu">
+                <a href="#" hx-patch="/api/tracker/application/{{ app.id }}"
+                   hx-vals='{"status": "Rejected"}' hx-swap="none"
+                   hx-on::after-request="location.reload()">Mark Rejected</a>
+                <a href="#" hx-patch="/api/tracker/application/{{ app.id }}"
+                   hx-vals='{"status": "Ghosted"}' hx-swap="none"
+                   hx-on::after-request="location.reload()">Mark Ghosted</a>
+                <a href="/tracker/application/{{ app.id }}">View Details</a>
+                <a href="#" hx-delete="/api/tracker/application/{{ app.id }}"
+                   hx-confirm="Delete this application?"
+                   hx-swap="none"
+                   hx-on::after-request="location.reload()">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tracker-header">
+    <h2>Application Tracker</h2>
+    <div class="tracker-actions">
+        <button onclick="document.getElementById('add-modal').showModal()" class="outline">+ New Application</button>
+        <a href="/api/tracker/export/csv" role="button" class="outline secondary">Export CSV</a>
+        <a href="/tracker/calendar" role="button" class="outline secondary">Calendar</a>
+        <a href="/tracker/analytics" role="button" class="outline secondary">Analytics</a>
+    </div>
+</div>
+
+<div class="tracker-filters">
+    <input type="search" id="tracker-search" placeholder="Search company or role..."
+           oninput="filterCards(this.value)">
+</div>
+
+<div class="kanban-board" id="kanban-board">
+    {% for status in statuses %}
+    <div class="kanban-column" data-status="{{ status }}"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '{{ status }}')">
+        <div class="kanban-column-header">
+            <h5>{{ status }}</h5>
+            <span class="badge badge-blue">{{ columns[status] | length }}</span>
+        </div>
+        <div class="kanban-cards">
+            {% for item in columns[status] %}
+                {% with app=item.app, days_since=item.days_since, urgency=item.urgency, overdue_followup=item.overdue_followup %}
+                    {% include "partials/tracker_card.html" %}
+                {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<dialog id="add-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-modal').close()"></button>
+            <h3>Add Application</h3>
+        </header>
+        <form hx-post="/tracker/add" hx-swap="none">
+            <label>Company *
+                <input type="text" name="company" required>
+            </label>
+            <label>Role *
+                <input type="text" name="role" required>
+            </label>
+            <div class="grid">
+                <label>Date Applied
+                    <input type="date" name="date_applied" value="{{ today }}">
+                </label>
+                <label>Status
+                    <select name="status">
+                        {% for s in statuses %}
+                        <option value="{{ s }}">{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+            <label>Salary Range
+                <input type="text" name="salary_range" placeholder="e.g. $120k-$150k">
+            </label>
+            <label>Job Posting URL
+                <input type="url" name="job_posting_url" placeholder="https://...">
+            </label>
+            <label>Application Method
+                <input type="text" name="application_method" placeholder="e.g. LinkedIn Easy Apply">
+            </label>
+            <label>Notes
+                <textarea name="notes" rows="3"></textarea>
+            </label>
+            <button type="submit">Add Application</button>
+        </form>
+    </article>
+</dialog>
+
+<script>
+function onDragStart(event, appId) {
+    event.dataTransfer.setData('text/plain', appId);
+    event.target.classList.add('dragging');
+}
+
+function onDragEnd(event) {
+    event.target.classList.remove('dragging');
+}
+
+function onDragOver(event) {
+    event.preventDefault();
+    event.currentTarget.classList.add('kanban-drop-target');
+}
+
+function onDragLeave(event) {
+    event.currentTarget.classList.remove('kanban-drop-target');
+}
+
+function onDrop(event, newStatus) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('kanban-drop-target');
+    var appId = event.dataTransfer.getData('text/plain');
+    fetch('/api/tracker/application/' + appId, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: newStatus})
+    }).then(function(resp) {
+        if (resp.ok) {
+            showToast('Status updated to ' + newStatus);
+            location.reload();
+        }
+    });
+}
+
+function filterCards(query) {
+    query = query.toLowerCase();
+    document.querySelectorAll('.kanban-card').forEach(function(card) {
+        var text = card.textContent.toLowerCase();
+        card.style.display = text.includes(query) ? '' : 'none';
+    });
+}
+
+function toggleDropdown(btn) {
+    var menu = btn.nextElementSibling;
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(m) {
+        if (m !== menu) m.classList.remove('show');
+    });
+    menu.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.card-action-dropdown')) {
+        document.querySelectorAll('.dropdown-menu.show').forEach(function(m) {
+            m.classList.remove('show');
+        });
+    }
+});
+</script>
+{% endblock %}

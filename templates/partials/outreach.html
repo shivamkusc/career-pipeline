@@ -17,7 +17,7 @@
 
     <div class="section-header">
         <span class="section-icon">&#128101;</span>
-        <h4>LinkedIn Message</h4>
+        <h4>LinkedIn Connection Request</h4>
     </div>
     {% set linkedin_text = narratives.get('linkedin_msg', 'No LinkedIn message generated.') %}
     {% set li_len = linkedin_text | length %}
@@ -29,7 +29,35 @@
                  style="width: {{ [li_len / 300 * 100, 100] | min }}%">
             </div>
         </div>
-        <small>{{ li_len }} / 300 characters</small>
+        <small>{{ li_len }} / 300 characters (connection request limit)</small>
     </div>
     <button class="copy-btn secondary outline" onclick="copyText('linkedin-text')">Copy Message</button>
+
+    <hr>
+
+    <div class="section-header">
+        <span class="section-icon">&#128233;</span>
+        <h4>LinkedIn InMail Limits</h4>
+    </div>
+    <p><small>If sending as InMail instead of connection request, note these limits:</small></p>
+
+    {% set email_len = email_text | length %}
+    <div class="linkedin-char-bar-container">
+        <small>InMail Subject (use email subject): {{ email_lines[0] | length if email_lines[0].lower().startswith('subject:') else 0 }} / 200 chars</small>
+        <div class="linkedin-char-bar">
+            {% set subj_len = email_lines[0] | length if email_lines[0].lower().startswith('subject:') else 0 %}
+            <div class="linkedin-char-fill {% if subj_len < 160 %}li-green{% elif subj_len < 190 %}li-yellow{% else %}li-red{% endif %}"
+                 style="width: {{ [subj_len / 200 * 100, 100] | min }}%">
+            </div>
+        </div>
+    </div>
+
+    <div class="linkedin-char-bar-container">
+        <small>InMail Body (use email body): {{ email_len }} / 1900 chars</small>
+        <div class="linkedin-char-bar">
+            <div class="linkedin-char-fill {% if email_len < 1500 %}li-green{% elif email_len < 1800 %}li-yellow{% else %}li-red{% endif %}"
+                 style="width: {{ [email_len / 1900 * 100, 100] | min }}%">
+            </div>
+        </div>
+    </div>
 </div>
