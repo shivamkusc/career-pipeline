@@ -1,4 +1,4 @@
-<article id="progress-card" hx-ext="sse" sse-connect="/stream/{{ job_id }}">
+<article id="progress-card" hx-ext="sse" sse-connect="/stream/{{ job_id }}" sse-close="done">
     <header>
         <h3>Pipeline Running</h3>
         <small id="progress-counter" sse-swap="progress" hx-swap="innerHTML">0 / 7 stages complete</small>

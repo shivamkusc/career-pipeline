@@ -54,6 +54,41 @@ def read_docx(file_path: str) -> str:
     return "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
 
 
+def read_pdf_text(file_path: str) -> str:
+    """Read a .pdf file and return its text content using PyPDF2."""
+    try:
+        from PyPDF2 import PdfReader
+        reader = PdfReader(file_path)
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text and text.strip():
+                pages.append(text.strip())
+        return "\n\n".join(pages)
+    except ImportError:
+        print("Warning: PyPDF2 not installed, skipping PDF style sample")
+        return ""
+    except Exception as e:
+        print(f"Warning: Could not read PDF {file_path}: {e}")
+        return ""
+
+
+def read_style_sample(file_path: str) -> str:
+    """Read a style sample file (.docx or .pdf) and return its text."""
+    ext = file_path.lower().rsplit(".", 1)[-1] if "." in file_path else ""
+    if ext == "docx":
+        return read_docx(file_path)
+    elif ext == "pdf":
+        return read_pdf_text(file_path)
+    else:
+        # Try reading as plain text
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except Exception:
+            return ""
+
+
 def strip_code_fences(text: str) -> str:
     """Remove markdown code fences from LLM output."""
     text = text.strip()

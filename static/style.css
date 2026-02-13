@@ -994,6 +994,104 @@ kbd {
     white-space: nowrap;
 }
 
+/* ─── Network contact grid ─── */
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.contact-card {
+    padding: 0.8rem;
+    margin-bottom: 0;
+}
+
+.contact-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.4rem;
+}
+
+.contact-email {
+    display: block;
+    color: var(--pico-muted-color);
+    margin-bottom: 0.3rem;
+    word-break: break-all;
+}
+
+.contact-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    margin-bottom: 0.3rem;
+}
+
+.contact-tags .badge {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+}
+
+.contact-card-meta {
+    margin-bottom: 0.4rem;
+}
+
+.contact-card-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.contact-card-reasons {
+    margin-bottom: 0.4rem;
+    color: var(--pico-muted-color);
+    font-size: 0.85rem;
+}
+
+/* ─── Network suggestions ─── */
+.network-suggestions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+/* ─── Variant tabs ─── */
+.variant-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ─── Settings layout ─── */
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+/* ─── Breadcrumb nav ─── */
+nav[aria-label="breadcrumb"] ul {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+}
+
+nav[aria-label="breadcrumb"] li::after {
+    content: " / ";
+    margin-left: 0.5rem;
+    color: var(--pico-muted-color);
+}
+
+nav[aria-label="breadcrumb"] li:last-child::after {
+    content: "";
+}
+
+nav[aria-label="breadcrumb"] li:last-child {
+    color: var(--pico-muted-color);
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 1200px) {
     .kanban-board {
@@ -1055,5 +1153,13 @@ kbd {
 
     .jd-template-dropdown {
         max-width: 100%;
+    }
+
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .network-suggestions {
+        grid-template-columns: 1fr;
     }
 }

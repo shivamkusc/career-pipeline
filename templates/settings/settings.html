@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Settings</h2>
+
+<!-- Email Integration -->
+<article>
+    <header>
+        <h3>Email Integration</h3>
+    </header>
+    <p><small>Connect your email to automatically track application responses and create follow-ups.</small></p>
+
+    <div class="grid">
+        <div>
+            <h4>Gmail</h4>
+            {% if providers.gmail.configured %}
+                {% if gmail_connected %}
+                <p class="positive-message">Connected: {{ gmail_email }}</p>
+                <button class="outline secondary"
+                        hx-post="/settings/email/disconnect/gmail"
+                        hx-swap="none"
+                        hx-confirm="Disconnect Gmail?"
+                        hx-on::after-request="showToast('Gmail disconnected');location.reload()">Disconnect</button>
+                {% else %}
+                <a href="/oauth/start/gmail" role="button">Connect Gmail</a>
+                {% endif %}
+            {% else %}
+                <p><small>Gmail integration requires <code>GMAIL_CLIENT_ID</code> and <code>GMAIL_CLIENT_SECRET</code> environment variables, plus <code>google-auth-oauthlib</code> package.</small></p>
+                <button disabled>Not Configured</button>
+            {% endif %}
+        </div>
+        <div>
+            <h4>Outlook</h4>
+            {% if providers.outlook.configured %}
+                {% if outlook_connected %}
+                <p class="positive-message">Connected: {{ outlook_email }}</p>
+                <button class="outline secondary"
+                        hx-post="/settings/email/disconnect/outlook"
+                        hx-swap="none"
+                        hx-confirm="Disconnect Outlook?"
+                        hx-on::after-request="showToast('Outlook disconnected');location.reload()">Disconnect</button>
+                {% else %}
+                <a href="/oauth/start/outlook" role="button">Connect Outlook</a>
+                {% endif %}
+            {% else %}
+                <p><small>Outlook integration requires <code>OUTLOOK_CLIENT_ID</code> and <code>OUTLOOK_CLIENT_SECRET</code> environment variables, plus <code>msal</code> package.</small></p>
+                <button disabled>Not Configured</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <hr>
+    <h4>Email Monitoring Options</h4>
+    <form hx-post="/settings/save" hx-swap="none"
+          hx-on::after-request="showToast('Settings saved')">
+        <div class="grid">
+            <label>Check frequency (minutes)
+                <select name="email_check_interval">
+                    {% for val in [15, 30, 60] %}
+                    <option value="{{ val }}" {{ 'selected' if settings.email_check_interval == val|string }}>{{ val }} min</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <input type="checkbox" name="email_auto_update" role="switch"
+                       {{ 'checked' if settings.email_auto_update == 'true' }}>
+                Auto-update application status
+            </label>
+        </div>
+        <button type="submit" class="outline">Save Email Settings</button>
+    </form>
+</article>
+
+<!-- Follow-up Defaults -->
+<article>
+    <header>
+        <h3>Follow-up Defaults</h3>
+    </header>
+    <form hx-post="/settings/save" hx-swap="none"
+          hx-on::after-request="showToast('Settings saved')">
+        <div class="grid">
+            <label>Default check-in timing (days after application)
+                <input type="number" name="default_checkin_days" min="3" max="30"
+                       value="{{ settings.default_checkin_days or '10' }}">
+            </label>
+            <label>Thank-you timing (hours after interview)
+                <input type="number" name="default_thankyou_hours" min="1" max="48"
+                       value="{{ settings.default_thankyou_hours or '24' }}">
+            </label>
+        </div>
+        <label>Tone preference
+            <select name="followup_tone">
+                <option value="formal" {{ 'selected' if settings.followup_tone == 'formal' }}>Formal</option>
+                <option value="balanced" {{ 'selected' if settings.followup_tone == 'balanced' or not settings.followup_tone }}>Balanced</option>
+                <option value="casual" {{ 'selected' if settings.followup_tone == 'casual' }}>Casual</option>
+            </select>
+        </label>
+        <button type="submit" class="outline">Save Follow-up Settings</button>
+    </form>
+</article>
+
+<!-- Network Settings -->
+<article>
+    <header>
+        <h3>Network Settings</h3>
+    </header>
+    <form hx-post="/settings/save" hx-swap="none"
+          hx-on::after-request="showToast('Settings saved')">
+        <div class="grid">
+            <label>Mark warm contacts as cold after (days)
+                <input type="number" name="network_warm_decay_days" min="30" max="365"
+                       value="{{ settings.network_warm_decay_days or '180' }}">
+            </label>
+            <label>Mark close contacts as warm after (days)
+                <input type="number" name="network_close_decay_days" min="30" max="365"
+                       value="{{ settings.network_close_decay_days or '120' }}">
+            </label>
+        </div>
+        <button type="submit" class="outline">Save Network Settings</button>
+    </form>
+</article>
+
+<!-- A/B Testing Settings -->
+<article>
+    <header>
+        <h3>A/B Testing</h3>
+    </header>
+    <form hx-post="/settings/save" hx-swap="none"
+          hx-on::after-request="showToast('Settings saved')">
+        <label>
+            <input type="checkbox" name="auto_generate_variants" role="switch"
+                   {{ 'checked' if settings.auto_generate_variants == 'true' }}>
+            Auto-generate variants when running pipeline
+        </label>
+        <div class="grid">
+            <label>Default variant count
+                <select name="default_variant_count">
+                    {% for v in [2, 3, 4] %}
+                    <option value="{{ v }}" {{ 'selected' if settings.default_variant_count == v|string }}>{{ v }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <input type="checkbox" name="show_variant_recommendation" role="switch"
+                       {{ 'checked' if settings.show_variant_recommendation == 'true' }}>
+                Show variant recommendation based on history
+            </label>
+        </div>
+        <button type="submit" class="outline">Save A/B Settings</button>
+    </form>
+</article>
+
+<!-- Background Jobs -->
+<article>
+    <header>
+        <h3>Background Jobs</h3>
+    </header>
+    {% if scheduler_jobs %}
+    <table>
+        <thead><tr><th>Job</th><th>Next Run</th><th>Schedule</th></tr></thead>
+        <tbody>
+            {% for job in scheduler_jobs %}
+            <tr>
+                <td>{{ job.name }}</td>
+                <td>{{ job.next_run }}</td>
+                <td><small>{{ job.trigger }}</small></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><small>Background scheduler not running. Install <code>apscheduler</code> to enable automatic tasks.</small></p>
+    {% endif %}
+</article>
+
+<!-- Data Export -->
+<article>
+    <header>
+        <h3>Data Management</h3>
+    </header>
+    <div class="tracker-export-actions">
+        <a href="/api/tracker/export/csv" role="button" class="outline">Export Applications CSV</a>
+        <a href="/api/tracker/export/notion" role="button" class="outline">Export Notion Markdown</a>
+    </div>
+</article>
+{% endblock %}

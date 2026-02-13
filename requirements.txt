@@ -1,20 +1,32 @@
-# Core — Claude API client
-anthropic>=0.79.0
+# ── Core AI ──────────────────────────────────────────────
+anthropic>=0.79.0               # Claude API client (LLM backbone)
 
-# Document parsing
-python-docx>=1.2.0
+# ── Document Parsing ────────────────────────────────────
+python-docx>=1.2.0              # .docx style sample reader
+PyPDF2>=3.0.0                   # PDF text extraction for style samples
 
-# Environment variable management
-python-dotenv>=1.2.1
+# ── Environment ─────────────────────────────────────────
+python-dotenv>=1.0.0            # Load .env for API keys & secrets
 
-# HTTP client (Serper.dev recruiter search)
-requests>=2.32.5
+# ── HTTP / Search ───────────────────────────────────────
+requests>=2.31.0                # HTTP client (Serper, Microsoft Graph)
+duckduckgo-search>=8.0.0        # Fallback recruiter search engine
 
-# Fallback search engine (DuckDuckGo)
-duckduckgo-search>=8.1.1
+# ── Web UI ──────────────────────────────────────────────
+flask>=3.0.0                    # Web framework (HTMX + SSE frontend)
 
-# Web UI
-flask>=3.1.0
+# ── Database ────────────────────────────────────────────
+sqlalchemy>=2.0.0               # ORM for SQLite application tracker
 
-# Application tracker (SQLite ORM)
-sqlalchemy>=2.0.0
+# ── Background Jobs ────────────────────────────────────
+apscheduler>=3.10.4             # Periodic tasks (email check, decay, analysis)
+
+# ── Email Integration (Gmail) ──────────────────────────
+google-auth-oauthlib>=1.2.0     # Gmail OAuth 2.0 flow
+google-api-python-client>=2.100.0  # Gmail API (fetch & classify emails)
+
+# ── Email Integration (Outlook — optional) ─────────────
+msal>=1.26.0                    # Microsoft identity platform (Azure AD OAuth)
+
+# ── Security ────────────────────────────────────────────
+cryptography>=41.0.0            # Fernet symmetric encryption for OAuth tokens

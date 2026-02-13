@@ -61,6 +61,58 @@
     <h4>ATS Score Distribution</h4>
     <canvas id="ats-chart" height="200"></canvas>
     {% endif %}
+
+    {% if analytics.referral_count is defined %}
+    <hr>
+    <h4>Network & Referral Stats</h4>
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.total_contacts }}</span>
+            <small>Total Contacts</small>
+        </div>
+        <div class="stat-card stat-safe">
+            <span class="stat-number">{{ analytics.contacts_by_strength.close }}</span>
+            <small>Close</small>
+        </div>
+        <div class="stat-card stat-warning">
+            <span class="stat-number">{{ analytics.contacts_by_strength.warm }}</span>
+            <small>Warm</small>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.referral_count }}</span>
+            <small>Referrals</small>
+        </div>
+        <div class="stat-card stat-safe">
+            <span class="stat-number">{{ analytics.referral_success_rate }}%</span>
+            <small>Referral Success</small>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if analytics.variant_stats %}
+    <hr>
+    <h4>A/B Variant Performance</h4>
+    <canvas id="variant-chart" height="200"></canvas>
+    {% endif %}
+
+    {% if analytics.followup_total is defined %}
+    <hr>
+    <h4>Follow-up Stats</h4>
+    <div class="stats-row">
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.followup_total }}</span>
+            <small>Total Follow-ups</small>
+        </div>
+        <div class="stat-card stat-safe">
+            <span class="stat-number">{{ analytics.followup_completed }}</span>
+            <small>Completed</small>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ analytics.followup_total - analytics.followup_completed }}</span>
+            <small>Pending</small>
+        </div>
+    </div>
+    {% endif %}
 </article>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -143,6 +195,36 @@ new Chart(document.getElementById('ats-chart'), {
     },
     options: {
         plugins: { legend: { position: 'bottom' } }
+    }
+});
+{% endif %}
+
+// Variant performance chart
+{% if analytics.variant_stats %}
+var variantData = {{ analytics.variant_stats | tojson }};
+var variantNames = Object.keys(variantData);
+var variantCounts = variantNames.map(function(n) { return variantData[n].count; });
+var variantResponses = variantNames.map(function(n) { return variantData[n].responses; });
+new Chart(document.getElementById('variant-chart'), {
+    type: 'bar',
+    data: {
+        labels: variantNames,
+        datasets: [
+            {
+                label: 'Times Used',
+                data: variantCounts,
+                backgroundColor: '#1095c1',
+            },
+            {
+                label: 'Got Response',
+                data: variantResponses,
+                backgroundColor: '#28a745',
+            }
+        ]
+    },
+    options: {
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
     }
 });
 {% endif %}

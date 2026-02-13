@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tracker-header">
+    <div>
+        <h2>Network</h2>
+        <p>Manage contacts, track referrals, and find outreach targets.</p>
+    </div>
+    <div class="tracker-actions">
+        <button class="outline" onclick="document.getElementById('import-modal').showModal()">Import LinkedIn CSV</button>
+        <button onclick="document.getElementById('add-contact-modal').showModal()">Add Contact</button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="tracker-filters">
+    <div class="grid">
+        <input type="search" name="search" placeholder="Search contacts..."
+               hx-get="/network" hx-target="#contact-grid" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms" hx-include="[name='strength'],[name='tag']"
+               hx-select="#contact-grid > *" value="{{ request.args.get('search', '') }}">
+        <select name="strength" hx-get="/network" hx-target="#contact-grid" hx-swap="innerHTML"
+                hx-include="[name='search'],[name='tag']" hx-select="#contact-grid > *">
+            <option value="">All Relationships</option>
+            <option value="close" {{ 'selected' if request.args.get('strength') == 'close' }}>Close</option>
+            <option value="warm" {{ 'selected' if request.args.get('strength') == 'warm' }}>Warm</option>
+            <option value="cold" {{ 'selected' if request.args.get('strength') == 'cold' }}>Cold</option>
+        </select>
+        <select name="tag" hx-get="/network" hx-target="#contact-grid" hx-swap="innerHTML"
+                hx-include="[name='search'],[name='strength']" hx-select="#contact-grid > *">
+            <option value="">All Tags</option>
+            <option value="recruiter">Recruiter</option>
+            <option value="engineer">Engineer</option>
+            <option value="manager">Manager</option>
+            <option value="founder">Founder</option>
+        </select>
+    </div>
+</div>
+
+<!-- Stats row -->
+<div class="stats-row">
+    <div class="stat-card">
+        <span class="stat-number">{{ total_contacts }}</span>
+        <small>Total Contacts</small>
+    </div>
+    <div class="stat-card stat-safe">
+        <span class="stat-number">{{ strength_counts.close }}</span>
+        <small>Close</small>
+    </div>
+    <div class="stat-card stat-warning">
+        <span class="stat-number">{{ strength_counts.warm }}</span>
+        <small>Warm</small>
+    </div>
+    <div class="stat-card">
+        <span class="stat-number">{{ strength_counts.cold }}</span>
+        <small>Cold</small>
+    </div>
+</div>
+
+<!-- Outreach suggestions -->
+{% if suggestions %}
+<details open>
+    <summary><strong>Suggested Outreach ({{ suggestions|length }})</strong></summary>
+    <div class="network-suggestions">
+        {% for s in suggestions %}
+        <article class="contact-card">
+            <div class="contact-card-header">
+                <div>
+                    <strong>{{ s.contact.name }}</strong>
+                    {% if s.contact.company %}<br><small>{{ s.contact.title or '' }} @ {{ s.contact.company }}</small>{% endif %}
+                </div>
+                <span class="badge badge-blue">Score: {{ s.score }}</span>
+            </div>
+            <div class="contact-card-reasons">
+                {% for reason in s.reasons %}
+                <small>{{ reason }}</small>{% if not loop.last %} &middot; {% endif %}
+                {% endfor %}
+            </div>
+            <div class="contact-card-actions">
+                <a href="/network/contact/{{ s.contact.id }}" class="card-action-link">View</a>
+                {% if s.suggested_action == 'coffee_chat' %}
+                <button class="outline copy-btn" hx-post="/api/network/coffee-chat/{{ s.contact.id }}"
+                        hx-target="#chat-result-{{ s.contact.id }}" hx-swap="innerHTML">Generate Coffee Chat</button>
+                {% elif s.suggested_action == 'referral_request' %}
+                <span class="badge badge-green">Ask for Referral</span>
+                {% else %}
+                <span class="badge badge-yellow">Check In</span>
+                {% endif %}
+            </div>
+            <div id="chat-result-{{ s.contact.id }}"></div>
+        </article>
+        {% endfor %}
+    </div>
+</details>
+{% endif %}
+
+<!-- Network gaps -->
+{% if gaps and gaps.gap_companies %}
+<details>
+    <summary><strong>Network Gaps ({{ gaps.gap_companies|length }} companies)</strong></summary>
+    <p><small>Companies you're applying to with no contacts in your network:</small></p>
+    <div class="keyword-list">
+        {% for s in gaps.suggestions %}
+        <a href="{{ s.search_url }}" target="_blank" class="badge badge-red" title="Search LinkedIn for contacts at {{ s.company }}">{{ s.company }}</a>
+        {% endfor %}
+    </div>
+</details>
+{% endif %}
+
+<!-- Contact grid -->
+<div id="contact-grid">
+    {% if contacts %}
+    <div class="contact-grid">
+        {% for c in contacts %}
+        <article class="contact-card">
+            <div class="contact-card-header">
+                <div>
+                    <a href="/network/contact/{{ c.id }}"><strong>{{ c.name }}</strong></a>
+                    {% if c.company %}<br><small>{{ c.title or '' }}{% if c.title and c.company %} @ {% endif %}{{ c.company }}</small>{% endif %}
+                </div>
+                <span class="badge {% if c.relationship_strength == 'close' %}badge-green{% elif c.relationship_strength == 'warm' %}badge-yellow{% else %}badge-red{% endif %}">
+                    {{ c.relationship_strength }}
+                </span>
+            </div>
+            {% if c.email %}
+            <small class="contact-email">{{ c.email }}</small>
+            {% endif %}
+            {% if c.tags %}
+            <div class="contact-tags">
+                {% for tag in c.tags.split(',') if tag.strip() %}
+                <span class="badge badge-blue">{{ tag.strip() }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="contact-card-meta">
+                {% if c.last_contacted %}
+                <small>Last contact: {{ c.last_contacted.isoformat() }}</small>
+                {% else %}
+                <small>Never contacted</small>
+                {% endif %}
+            </div>
+            <div class="contact-card-actions">
+                <a href="/network/contact/{{ c.id }}" class="card-action-link">Details</a>
+                <button class="outline copy-btn"
+                        hx-delete="/api/network/contacts/{{ c.id }}"
+                        hx-target="closest article" hx-swap="outerHTML"
+                        hx-confirm="Delete {{ c.name }}?"
+                        hx-on::after-request="showToast('Contact deleted')">Delete</button>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No contacts yet. Import your LinkedIn connections or add contacts manually.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- LinkedIn import modal -->
+<dialog id="import-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('import-modal').close()"></button>
+            <h3>Import LinkedIn Connections</h3>
+        </header>
+        <p><small>Export your connections from <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank">LinkedIn Data Export</a>, then upload the CSV file.</small></p>
+        <form hx-post="/network/import" hx-target="#import-result" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){showToast('Import complete');setTimeout(()=>location.reload(),1000)}"
+              enctype="multipart/form-data">
+            <input type="file" name="csv_file" accept=".csv" required>
+            <button type="submit">Import</button>
+        </form>
+        <div id="import-result"></div>
+    </article>
+</dialog>
+
+<!-- Add contact modal -->
+<dialog id="add-contact-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-contact-modal').close()"></button>
+            <h3>Add Contact</h3>
+        </header>
+        <form hx-post="/api/network/contacts" hx-target="#contact-grid" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('add-contact-modal').close();showToast('Contact added');location.reload()}"
+              hx-select="#contact-grid > *">
+            <label>Name <span class="required">*</span>
+                <input type="text" name="name" required>
+            </label>
+            <label>Email
+                <input type="email" name="email">
+            </label>
+            <div class="grid">
+                <label>Company
+                    <input type="text" name="company">
+                </label>
+                <label>Title
+                    <input type="text" name="title">
+                </label>
+            </div>
+            <label>LinkedIn URL
+                <input type="url" name="linkedin_url" placeholder="https://linkedin.com/in/...">
+            </label>
+            <div class="grid">
+                <label>Relationship
+                    <select name="relationship_strength">
+                        <option value="cold">Cold</option>
+                        <option value="warm" selected>Warm</option>
+                        <option value="close">Close</option>
+                    </select>
+                </label>
+                <label>Source
+                    <select name="source">
+                        <option value="manual">Manual</option>
+                        <option value="linkedin_import">LinkedIn</option>
+                        <option value="recruiter_search">Recruiter Search</option>
+                    </select>
+                </label>
+            </div>
+            <label>Tags <small>(comma-separated)</small>
+                <input type="text" name="tags" placeholder="recruiter,engineer,google">
+            </label>
+            <label>Notes
+                <textarea name="notes" rows="2"></textarea>
+            </label>
+            <button type="submit">Add Contact</button>
+        </form>
+    </article>
+</dialog>
+{% endblock %}

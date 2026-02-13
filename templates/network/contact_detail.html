@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ul>
+        <li><a href="/network">Network</a></li>
+        <li>{{ contact.name }}</li>
+    </ul>
+</nav>
+
+<div class="tracker-header">
+    <div>
+        <h2>{{ contact.name }}</h2>
+        <p>
+            {% if contact.title %}{{ contact.title }}{% endif %}
+            {% if contact.title and contact.company %} @ {% endif %}
+            {% if contact.company %}{{ contact.company }}{% endif %}
+        </p>
+    </div>
+    <div class="summary-badges">
+        <span class="badge {% if contact.relationship_strength == 'close' %}badge-green{% elif contact.relationship_strength == 'warm' %}badge-yellow{% else %}badge-red{% endif %}">
+            {{ contact.relationship_strength }}
+        </span>
+        {% if contact.tags %}
+            {% for tag in contact.tags.split(',') if tag.strip() %}
+            <span class="badge badge-blue">{{ tag.strip() }}</span>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Contact info card -->
+<article>
+    <div class="grid">
+        <div>
+            <h4>Contact Info</h4>
+            {% if contact.email %}
+            <p><strong>Email:</strong> <a href="mailto:{{ contact.email }}">{{ contact.email }}</a></p>
+            {% endif %}
+            {% if contact.linkedin_url %}
+            <p><strong>LinkedIn:</strong> <a href="{{ contact.linkedin_url }}" target="_blank">Profile</a></p>
+            {% endif %}
+            {% if contact.last_contacted %}
+            <p><strong>Last contacted:</strong> {{ contact.last_contacted.isoformat() }}
+                ({{ (today_date - contact.last_contacted).days }} days ago)</p>
+            {% else %}
+            <p><strong>Last contacted:</strong> Never</p>
+            {% endif %}
+            <p><strong>Source:</strong> {{ contact.source }}</p>
+        </div>
+        <div>
+            <h4>Quick Actions</h4>
+            <button class="outline" onclick="document.getElementById('interaction-modal').showModal()">Log Interaction</button>
+            <button class="outline" onclick="document.getElementById('edit-contact-modal').showModal()">Edit Contact</button>
+            <button class="outline secondary"
+                    hx-delete="/api/network/contacts/{{ contact.id }}"
+                    hx-confirm="Delete {{ contact.name }}?"
+                    hx-on::after-request="if(event.detail.successful){window.location='/network'}">Delete</button>
+        </div>
+    </div>
+    {% if contact.notes %}
+    <details>
+        <summary>Notes</summary>
+        <p>{{ contact.notes }}</p>
+    </details>
+    {% endif %}
+</article>
+
+<!-- Interaction timeline -->
+<article>
+    <header>
+        <h3>Interaction Timeline</h3>
+    </header>
+    <div id="interactions-list">
+        {% if interactions %}
+        <table>
+            <thead>
+                <tr><th>Date</th><th>Type</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                {% for i in interactions %}
+                <tr>
+                    <td>{{ i.interaction_date.isoformat() if i.interaction_date else '' }}</td>
+                    <td><span class="badge badge-blue">{{ i.interaction_type }}</span></td>
+                    <td>{{ i.notes or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p><small>No interactions recorded yet.</small></p>
+        {% endif %}
+    </div>
+</article>
+
+<!-- Referrals -->
+<article>
+    <header>
+        <h3>Referrals</h3>
+    </header>
+    {% if referrals %}
+    <table>
+        <thead>
+            <tr><th>Company / Role</th><th>Date</th><th>Method</th><th>Outcome</th><th>Thank You</th></tr>
+        </thead>
+        <tbody>
+            {% for r in referrals %}
+            <tr>
+                <td>
+                    {% if r.application %}
+                    <a href="/tracker/application/{{ r.application.id }}">{{ r.application.company }} - {{ r.application.role }}</a>
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </td>
+                <td>{{ r.referral_date.isoformat() if r.referral_date else '' }}</td>
+                <td>{{ r.referral_method }}</td>
+                <td>
+                    <select hx-patch="/api/network/referral/{{ r.id }}"
+                            hx-target="closest tr" hx-swap="outerHTML"
+                            hx-on::after-request="showToast('Updated')"
+                            name="outcome">
+                        {% for o in ['pending', 'got_interview', 'got_offer', 'rejected', 'no_response'] %}
+                        <option value="{{ o }}" {{ 'selected' if r.outcome == o }}>{{ o.replace('_', ' ').title() }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>{{ 'Yes' if r.thank_you_sent else 'No' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><small>No referrals tracked for this contact.</small></p>
+    {% endif %}
+</article>
+
+<!-- Generate coffee chat -->
+<article>
+    <header>
+        <h3>Generate Outreach Message</h3>
+    </header>
+    <button class="outline"
+            hx-post="/api/network/coffee-chat/{{ contact.id }}"
+            hx-target="#chat-output" hx-swap="innerHTML"
+            hx-indicator="#chat-spinner">
+        Generate Coffee Chat Request
+    </button>
+    <span id="chat-spinner" class="htmx-indicator">Generating...</span>
+    <div id="chat-output"></div>
+</article>
+
+<!-- Log interaction modal -->
+<dialog id="interaction-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('interaction-modal').close()"></button>
+            <h3>Log Interaction</h3>
+        </header>
+        <form hx-post="/api/network/interaction"
+              hx-target="#interactions-list" hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('interaction-modal').close();showToast('Interaction logged')}">
+            <input type="hidden" name="contact_id" value="{{ contact.id }}">
+            <div class="grid">
+                <label>Date
+                    <input type="date" name="interaction_date" value="{{ today_date.isoformat() }}" required>
+                </label>
+                <label>Type
+                    <select name="interaction_type">
+                        <option value="email">Email</option>
+                        <option value="linkedin_message">LinkedIn Message</option>
+                        <option value="phone">Phone Call</option>
+                        <option value="coffee_chat">Coffee Chat</option>
+                        <option value="referral_request">Referral Request</option>
+                        <option value="thank_you">Thank You</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+            </div>
+            <label>Notes
+                <textarea name="notes" rows="2"></textarea>
+            </label>
+            <button type="submit">Log</button>
+        </form>
+    </article>
+</dialog>
+
+<!-- Edit contact modal -->
+<dialog id="edit-contact-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-contact-modal').close()"></button>
+            <h3>Edit Contact</h3>
+        </header>
+        <form hx-put="/api/network/contacts/{{ contact.id }}"
+              hx-swap="none"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('edit-contact-modal').close();showToast('Updated');location.reload()}">
+            <label>Name
+                <input type="text" name="name" value="{{ contact.name }}" required>
+            </label>
+            <label>Email
+                <input type="email" name="email" value="{{ contact.email or '' }}">
+            </label>
+            <div class="grid">
+                <label>Company
+                    <input type="text" name="company" value="{{ contact.company or '' }}">
+                </label>
+                <label>Title
+                    <input type="text" name="title" value="{{ contact.title or '' }}">
+                </label>
+            </div>
+            <label>LinkedIn URL
+                <input type="url" name="linkedin_url" value="{{ contact.linkedin_url or '' }}">
+            </label>
+            <div class="grid">
+                <label>Relationship
+                    <select name="relationship_strength">
+                        {% for s in ['cold', 'warm', 'close'] %}
+                        <option value="{{ s }}" {{ 'selected' if contact.relationship_strength == s }}>{{ s.title() }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>Contact Frequency (days)
+                    <input type="number" name="contact_frequency_days" value="{{ contact.contact_frequency_days or 90 }}">
+                </label>
+            </div>
+            <label>Tags
+                <input type="text" name="tags" value="{{ contact.tags or '' }}">
+            </label>
+            <label>Notes
+                <textarea name="notes" rows="2">{{ contact.notes or '' }}</textarea>
+            </label>
+            <button type="submit">Save Changes</button>
+        </form>
+    </article>
+</dialog>
+{% endblock %}

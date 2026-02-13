@@ -1,0 +1,35 @@
+<article>
+    <header><h4>Generated Follow-up</h4></header>
+
+    {% if followup.subject %}
+    <div class="email-subject">Subject: {{ followup.subject }}</div>
+    {% endif %}
+
+    <div class="text-preview">
+        {% for para in followup.message.split('\n\n') if para.strip() %}
+        <p>{{ para }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="summary-badges" style="margin-bottom: 0.5rem;">
+        <button class="outline copy-btn" onclick="copyText(this, `{{ followup.message|e }}`)">Copy Message</button>
+        {% if followup.suggested_send_date %}
+        <small>Suggested send date: <strong>{{ followup.suggested_send_date }}</strong></small>
+        {% endif %}
+    </div>
+
+    {% if followup.tips %}
+    <details>
+        <summary>Tips</summary>
+        <ul>
+            {% for tip in followup.tips %}
+            <li>{{ tip }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+
+    {% if followup.variant_note %}
+    <small>{{ followup.variant_note }}</small>
+    {% endif %}
+</article>

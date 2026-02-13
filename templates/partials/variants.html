@@ -1,0 +1,96 @@
+{% if variants %}
+<h4>A/B Test Variants ({{ variants|length }})</h4>
+
+{% if recommendation %}
+<div class="notice">
+    <strong>Recommended:</strong> {{ recommendation }}
+</div>
+{% endif %}
+
+<div class="tabs" id="variant-tabs">
+    {% for v in variants %}
+    <button class="tab {% if loop.first %}active{% endif %}"
+            onclick="setVariantTab(this, 'variant-panel-{{ loop.index }}')">
+        {{ v.display_name or v.variant_name }}
+    </button>
+    {% endfor %}
+</div>
+
+{% for v in variants %}
+<div class="tab-panel variant-panel" id="variant-panel-{{ loop.index }}" {% if not loop.first %}style="display:none"{% endif %}>
+    <article>
+        <header>
+            <div class="contact-card-header">
+                <h4>{{ v.display_name or v.variant_name }}</h4>
+                {% if v.db_id %}
+                <div class="variant-actions">
+                    {% if not v.used %}
+                    <button class="outline copy-btn"
+                            hx-post="/api/variants/{{ v.db_id }}/mark_used"
+                            hx-swap="none"
+                            hx-on::after-request="showToast('Marked as used')">
+                        I Used This One
+                    </button>
+                    {% else %}
+                    <span class="badge badge-green">Used</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <p><small>{{ v.description }}</small></p>
+
+        {% if v.key_differences %}
+        <details>
+            <summary>Key Differences</summary>
+            <ul>
+                {% for diff in v.key_differences %}
+                <li>{{ diff }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+
+        <h5>Cover Letter</h5>
+        <div class="text-preview">
+            {% for para in v.cover_letter.split('\n\n') if para.strip() %}
+            <p>{{ para }}</p>
+            {% endfor %}
+        </div>
+        <button class="outline copy-btn"
+                onclick="copyText(this, `{{ v.cover_letter|e }}`)">Copy Cover Letter</button>
+
+        {% if v.cold_email %}
+        <h5>Cold Email</h5>
+        <div class="text-preview">
+            <pre style="white-space: pre-wrap;">{{ v.cold_email }}</pre>
+        </div>
+        <button class="outline copy-btn"
+                onclick="copyText(this, `{{ v.cold_email|e }}`)">Copy Email</button>
+        {% endif %}
+
+        {% if v.linkedin_message %}
+        <h5>LinkedIn Message <small>({{ v.linkedin_message|length }}/300 chars)</small></h5>
+        <div class="text-preview">
+            <p>{{ v.linkedin_message }}</p>
+        </div>
+        <button class="outline copy-btn"
+                onclick="copyText(this, `{{ v.linkedin_message|e }}`)">Copy LinkedIn</button>
+        {% endif %}
+    </article>
+</div>
+{% endfor %}
+
+<script>
+function setVariantTab(el, panelId) {
+    document.querySelectorAll('#variant-tabs .tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.variant-panel').forEach(p => p.style.display = 'none');
+    document.getElementById(panelId).style.display = 'block';
+}
+</script>
+
+{% else %}
+<p><small>No variants generated yet.</small></p>
+{% endif %}

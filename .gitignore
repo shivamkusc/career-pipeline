@@ -24,6 +24,7 @@ env/
 
 # Application tracker database
 applications.db
+scheduler_jobs.db
 
 # LaTeX artifacts
 *.aux

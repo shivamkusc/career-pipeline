@@ -1,0 +1,32 @@
+<article>
+    {% if chat.subject %}
+    <div class="email-subject">Subject: {{ chat.subject }}</div>
+    {% endif %}
+
+    <h5>Email Version</h5>
+    <div class="text-preview">
+        {% for para in chat.message.split('\n\n') if para.strip() %}
+        <p>{{ para }}</p>
+        {% endfor %}
+    </div>
+    <button class="outline copy-btn" onclick="copyText(this, `{{ chat.message|e }}`)">Copy Email</button>
+
+    {% if chat.linkedin_version %}
+    <h5>LinkedIn Version <small>({{ chat.linkedin_version|length }}/1900 chars)</small></h5>
+    <div class="text-preview">
+        <p>{{ chat.linkedin_version }}</p>
+    </div>
+    <button class="outline copy-btn" onclick="copyText(this, `{{ chat.linkedin_version|e }}`)">Copy LinkedIn</button>
+    {% endif %}
+
+    {% if chat.tips %}
+    <details>
+        <summary>Tips</summary>
+        <ul>
+            {% for tip in chat.tips %}
+            <li>{{ tip }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+</article>

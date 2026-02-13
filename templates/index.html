@@ -19,7 +19,7 @@
 
             <!-- Hidden fields for history selections -->
             <input type="hidden" name="resume_id" id="resume-id-input" value="">
-            <input type="hidden" name="style_id" id="style-id-input" value="">
+            <div id="style-id-inputs"></div>
 
             <div class="grid">
                 <!-- Resume upload -->
@@ -56,14 +56,14 @@
 
                 <!-- Style sample upload -->
                 <div>
-                    <label>Style Sample (.docx) <small>optional</small></label>
+                    <label>Style Samples (.docx / .pdf) <small>optional, multiple OK</small></label>
                     <div class="drop-zone" id="style-drop-zone">
-                        <input type="file" name="style_file" accept=".docx"
+                        <input type="file" name="style_files" accept=".docx,.pdf" multiple
                                id="style-input"
                                onchange="onStyleFileChange(this)">
                         <p class="drop-zone-text">
-                            Drag & drop .docx style sample<br>
-                            <small>or click to browse</small>
+                            Drag & drop .docx or .pdf style samples<br>
+                            <small>or click to browse (select multiple)</small>
                         </p>
                         <p class="file-name" id="style-file-name"></p>
                         <p class="file-warning" id="style-warning" style="display:none"></p>
@@ -71,9 +71,9 @@
 
                     {% if styles %}
                     <div class="file-history" id="style-history">
-                        <small class="file-history-label">Recent Style Samples</small>
+                        <small class="file-history-label">Recent Style Samples <small>(click to select multiple)</small></small>
                         {% for s in styles %}
-                        <div class="file-history-item" data-id="{{ s.id }}" onclick="selectStyle(this, '{{ s.id }}')">
+                        <div class="file-history-item" data-id="{{ s.id }}" onclick="toggleStyleHistory(this, '{{ s.id }}')">
                             <div class="file-history-info">
                                 <span class="file-history-name">{{ s.original_filename }}</span>
                                 <span class="file-history-meta">{{ s.size_display }} &middot; {{ s.saved_at }}</span>
@@ -81,7 +81,7 @@
                             <button type="button" class="file-history-delete" onclick="event.stopPropagation(); deleteUpload('styles', '{{ s.id }}', this)" title="Remove">&times;</button>
                         </div>
                         {% endfor %}
-                        <a href="#" class="file-history-clear" id="style-clear" style="display:none" onclick="clearStyleSelection(event)">Clear selection</a>
+                        <a href="#" class="file-history-clear" id="style-clear" style="display:none" onclick="clearStyleSelection(event)">Clear all selections</a>
                     </div>
                     {% endif %}
                 </div>
@@ -225,22 +225,19 @@ function onResumeFileChange(input) {
 }
 
 function onStyleFileChange(input) {
-    const file = showFileName(input, 'style-file-name', 'style-warning');
-    // Clear history selection when picking a new file
-    clearStyleHistoryHighlight();
-    document.getElementById('style-id-input').value = '';
-    if (file) {
-        // Basic .docx validation: check for PK zip header
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const arr = new Uint8Array(e.target.result);
-            if (arr.length >= 2 && !(arr[0] === 0x50 && arr[1] === 0x4B)) {
-                const w = document.getElementById('style-warning');
-                w.textContent = "This doesn't look like a .docx file — are you sure?";
-                w.style.display = 'block';
-            }
-        };
-        reader.readAsArrayBuffer(file.slice(0, 4));
+    const nameEl = document.getElementById('style-file-name');
+    const warnEl = document.getElementById('style-warning');
+    warnEl.style.display = 'none';
+    if (input.files.length > 0) {
+        var names = [];
+        for (var i = 0; i < input.files.length; i++) {
+            names.push(input.files[i].name + ' (' + formatFileSize(input.files[i].size) + ')');
+        }
+        nameEl.textContent = names.join(', ');
+        input.closest('.drop-zone').classList.add('has-file');
+    } else {
+        nameEl.textContent = '';
+        input.closest('.drop-zone').classList.remove('has-file');
     }
 }
 
@@ -273,31 +270,33 @@ function clearResumeSelection(e) {
     e.target.style.display = 'none';
 }
 
-// ─── Style history selection ───
-function selectStyle(el, id) {
-    clearStyleHistoryHighlight();
-    el.classList.add('selected');
-    document.getElementById('style-id-input').value = id;
-    const fileInput = document.getElementById('style-input');
-    fileInput.value = '';
-    document.getElementById('style-file-name').textContent = '';
-    document.getElementById('style-warning').style.display = 'none';
-    document.getElementById('style-drop-zone').classList.remove('has-file');
-    const clearLink = document.getElementById('style-clear');
-    if (clearLink) clearLink.style.display = 'block';
+// ─── Style history selection (multi-select toggle) ───
+function toggleStyleHistory(el, id) {
+    el.classList.toggle('selected');
+    syncStyleHiddenInputs();
 }
 
-function clearStyleHistoryHighlight() {
-    document.querySelectorAll('#style-history .file-history-item').forEach(
-        item => item.classList.remove('selected')
-    );
+function syncStyleHiddenInputs() {
+    var container = document.getElementById('style-id-inputs');
+    container.innerHTML = '';
+    var selected = document.querySelectorAll('#style-history .file-history-item.selected');
+    selected.forEach(function(item) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'style_id';
+        inp.value = item.getAttribute('data-id');
+        container.appendChild(inp);
+    });
+    var clearLink = document.getElementById('style-clear');
+    if (clearLink) clearLink.style.display = selected.length > 0 ? 'block' : 'none';
 }
 
 function clearStyleSelection(e) {
     e.preventDefault();
-    clearStyleHistoryHighlight();
-    document.getElementById('style-id-input').value = '';
-    e.target.style.display = 'none';
+    document.querySelectorAll('#style-history .file-history-item').forEach(
+        function(item) { item.classList.remove('selected'); }
+    );
+    syncStyleHiddenInputs();
 }
 
 // ─── Delete from history ───
@@ -319,9 +318,7 @@ function deleteUpload(category, fileId, btn) {
                         hist.style.display = 'none';
                     }
                 } else {
-                    if (document.getElementById('style-id-input').value === fileId) {
-                        document.getElementById('style-id-input').value = '';
-                    }
+                    syncStyleHiddenInputs();
                     const hist = document.getElementById('style-history');
                     if (hist && hist.querySelectorAll('.file-history-item').length === 0) {
                         hist.style.display = 'none';

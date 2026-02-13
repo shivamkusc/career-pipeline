@@ -19,6 +19,8 @@
             <ul>
                 <li><a href="/">New Run</a></li>
                 <li><a href="/tracker">Tracker</a></li>
+                <li><a href="/network">Network</a></li>
+                <li><a href="/settings">Settings</a></li>
                 <li>
                     <button class="dark-mode-toggle outline secondary" onclick="toggleDarkMode()" title="Toggle dark mode">
                         <span id="theme-icon">&#9789;</span>
@@ -78,6 +80,8 @@
                     <tr><td><kbd>Ctrl+Enter</kbd></td><td>Submit pipeline form</td></tr>
                     <tr><td><kbd>t</kbd></td><td>Open Tracker</td></tr>
                     <tr><td><kbd>n</kbd></td><td>New run (home page)</td></tr>
+                    <tr><td><kbd>k</kbd></td><td>Open Network</td></tr>
+                    <tr><td><kbd>s</kbd></td><td>Open Settings</td></tr>
                     <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
                 </tbody>
             </table>
@@ -97,6 +101,10 @@
             window.location.href = '/tracker';
         } else if (e.key === 'n') {
             window.location.href = '/';
+        } else if (e.key === 'k') {
+            window.location.href = '/network';
+        } else if (e.key === 's') {
+            window.location.href = '/settings';
         } else if (e.key === '?') {
             document.getElementById('shortcuts-modal').showModal();
         } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

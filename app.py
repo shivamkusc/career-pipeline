@@ -3,6 +3,12 @@ app.py — Flask + HTMX Web UI for Career Pipeline
 Routes: upload form, background pipeline, SSE progress, results, PDF download
 """
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 import os
 import re
 import uuid
@@ -30,7 +36,7 @@ from ai_engine import (
     write_narratives,
     validate_no_hallucination,
     compute_ats_score,
-    read_docx,
+    read_style_sample,
 )
 from pdf_builder import build_pdf, build_cover_letter_pdf
 from recruiter_hunt import find_recruiters
@@ -45,7 +51,23 @@ from tracker import (
     export_csv as tracker_export_csv,
     export_notion_markdown,
     get_analytics, get_calendar_data,
+    # New: contacts, referrals, variants, email, settings
+    create_contact, get_contact, get_all_contacts, update_contact, delete_contact,
+    create_interaction, get_interactions_for_contact,
+    create_referral, get_referral, update_referral,
+    create_variant, get_variants_for_job, get_variant, update_variant,
+    create_email_tracking, get_unconfirmed_matches,
+    get_setting, set_setting,
+    get_extended_analytics,
+    OAuthToken, EmailTracking,
 )
+from followup_engine import generate_followup_message, suggest_followup_schedule
+from network_manager import (
+    import_linkedin_csv, suggest_outreach_targets, generate_coffee_chat_request,
+    detect_network_gaps, track_referral_outcome,
+)
+from ab_testing import generate_variants, analyze_variant_performance, recommend_variant_for_job
+from email_monitor import get_provider_status, GmailProvider, OutlookProvider, encrypt_token
 
 app = Flask(__name__)
 
@@ -57,6 +79,14 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Initialize SQLite database for application tracker
 init_db()
+
+# Start background scheduler (if APScheduler is installed)
+try:
+    from scheduler import init_scheduler, get_job_status
+    init_scheduler()
+except ImportError:
+    def get_job_status():
+        return []
 
 
 @app.context_processor
@@ -198,7 +228,7 @@ def _safe_filename(text):
     return re.sub(r'[^\w\-]', '_', text).strip('_')[:30]
 
 
-def run_pipeline_job(job_id, jd, resume_latex, style_path):
+def run_pipeline_job(job_id, jd, resume_latex, style_paths):
     """Execute the full pipeline, updating job state at each stage."""
     job = jobs[job_id]
 
@@ -223,8 +253,14 @@ def run_pipeline_job(job_id, jd, resume_latex, style_path):
         job["stage"] = "write"
         t0 = time.time()
         style_voice = ""
-        if style_path and os.path.exists(style_path):
-            style_voice = read_docx(style_path)
+        if style_paths:
+            parts = []
+            for sp in style_paths:
+                if sp and os.path.exists(sp):
+                    text = read_style_sample(sp)
+                    if text.strip():
+                        parts.append(text)
+            style_voice = "\n\n---\n\n".join(parts)
         narratives = write_narratives(tailored_latex, analysis, style_voice)
         job["timings"]["write"] = round(time.time() - t0, 1)
         job["narratives"] = narratives
@@ -349,25 +385,34 @@ def run():
     if not resume_latex:
         return '<div class="notice" role="alert">Please upload a .tex resume file or select one from history.</div>', 400
 
-    # Read style sample: from new upload OR from history
-    style_path = None
-    style_id = request.form.get("style_id", "").strip()
-    style_file = request.files.get("style_file")
+    # Read style samples: from new uploads OR from history (supports multiple)
+    style_paths = []
+    style_ids = request.form.getlist("style_id")  # multiple hidden inputs
+    style_files = request.files.getlist("style_files")  # multiple file input
 
     job_id = str(uuid.uuid4())[:8]
+    job_dir = os.path.join(TEMP_DIR, job_id)
 
-    if style_file and style_file.filename:
-        # New upload — save to history and use
-        file_data = style_file.read()
-        _save_upload(file_data, style_file.filename, "styles")
-        job_dir = os.path.join(TEMP_DIR, job_id)
-        os.makedirs(job_dir, exist_ok=True)
-        style_path = os.path.join(job_dir, "style_sample.docx")
-        with open(style_path, "wb") as f:
-            f.write(file_data)
-    elif style_id:
-        # Load from history
-        style_path = _get_upload_path(style_id, "styles")
+    # Handle new file uploads
+    for sf in style_files:
+        if sf and sf.filename:
+            file_data = sf.read()
+            _save_upload(file_data, sf.filename, "styles")
+            os.makedirs(job_dir, exist_ok=True)
+            _, ext = os.path.splitext(sf.filename)
+            saved_name = f"style_{len(style_paths)}{ext}"
+            saved_path = os.path.join(job_dir, saved_name)
+            with open(saved_path, "wb") as f:
+                f.write(file_data)
+            style_paths.append(saved_path)
+
+    # Handle history selections (multiple IDs)
+    for sid in style_ids:
+        sid = sid.strip()
+        if sid:
+            path = _get_upload_path(sid, "styles")
+            if path and os.path.exists(path):
+                style_paths.append(path)
 
     dark_mode_pdf = request.form.get("dark_mode_pdf") == "on"
 
@@ -390,7 +435,7 @@ def run():
     # Start background thread
     thread = threading.Thread(
         target=run_pipeline_job,
-        args=(job_id, jd, resume_latex, style_path),
+        args=(job_id, jd, resume_latex, style_paths),
         daemon=True,
     )
     thread.start()
@@ -827,10 +872,10 @@ def tracker_calendar():
 
 @app.route("/tracker/analytics")
 def tracker_analytics():
-    """Analytics dashboard with charts."""
+    """Analytics dashboard with charts (extended with network + variant data)."""
     db = get_db()
     try:
-        data = get_analytics(db)
+        data = get_extended_analytics(db)
         return render_template("tracker/analytics.html", analytics=data)
     finally:
         db.close()
@@ -988,6 +1033,603 @@ def regenerate_cover_letter(job_id):
         narratives=narratives,
         has_cover_pdf=has_cover_pdf,
     )
+
+
+# ─────────────────────────────────────────────────────────
+# Network routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/network")
+def network_dashboard():
+    """Network relationship manager dashboard."""
+    db = get_db()
+    try:
+        search = request.args.get("search", "").strip()
+        strength = request.args.get("strength", "").strip()
+        tag = request.args.get("tag", "").strip()
+
+        contacts = get_all_contacts(db, search=search or None,
+                                    strength=strength or None,
+                                    tag=tag or None)
+
+        strength_counts = {"close": 0, "warm": 0, "cold": 0}
+        all_contacts = get_all_contacts(db)
+        for c in all_contacts:
+            s = c.relationship_strength or "cold"
+            if s in strength_counts:
+                strength_counts[s] += 1
+
+        suggestions = suggest_outreach_targets(db, limit=5)
+        gaps = detect_network_gaps(db)
+
+        return render_template(
+            "network/dashboard.html",
+            contacts=contacts,
+            total_contacts=len(all_contacts),
+            strength_counts=strength_counts,
+            suggestions=suggestions,
+            gaps=gaps,
+        )
+    finally:
+        db.close()
+
+
+@app.route("/network/import", methods=["POST"])
+def network_import():
+    """Import LinkedIn CSV connections."""
+    csv_file = request.files.get("csv_file")
+    if not csv_file or not csv_file.filename:
+        return '<div class="notice error">No CSV file provided.</div>', 400
+
+    csv_content = csv_file.read().decode("utf-8", errors="replace")
+    db = get_db()
+    try:
+        result = import_linkedin_csv(csv_content, db)
+        return (
+            f'<div class="notice">'
+            f'Imported: {result["imported"]}, Updated: {result["updated"]}, '
+            f'Skipped: {result["skipped"]}'
+            f'{"".join("<br>Error: " + e for e in result.get("errors", []))}'
+            f'</div>'
+        )
+    finally:
+        db.close()
+
+
+@app.route("/network/contact/<int:contact_id>")
+def network_contact_detail(contact_id):
+    """Contact detail page."""
+    db = get_db()
+    try:
+        contact = get_contact(db, contact_id)
+        if not contact:
+            abort(404)
+        interactions = get_interactions_for_contact(db, contact_id)
+        referrals = contact.referrals
+        return render_template(
+            "network/contact_detail.html",
+            contact=contact,
+            interactions=interactions,
+            referrals=referrals,
+        )
+    finally:
+        db.close()
+
+
+@app.route("/api/network/contacts", methods=["POST"])
+def api_create_contact():
+    """Create a new contact."""
+    db = get_db()
+    try:
+        data = request.get_json(silent=True) or request.form
+        create_contact(
+            db,
+            name=(data.get("name", "") or "").strip(),
+            email=(data.get("email", "") or "").strip() or None,
+            company=(data.get("company", "") or "").strip() or None,
+            title=(data.get("title", "") or "").strip() or None,
+            linkedin_url=(data.get("linkedin_url", "") or "").strip() or None,
+            relationship_strength=data.get("relationship_strength", "warm"),
+            source=data.get("source", "manual"),
+            tags=(data.get("tags", "") or "").strip() or None,
+            notes=(data.get("notes", "") or "").strip() or None,
+        )
+        return "", 200
+    finally:
+        db.close()
+
+
+@app.route("/api/network/contacts/<int:contact_id>", methods=["PUT"])
+def api_update_contact(contact_id):
+    """Update a contact."""
+    db = get_db()
+    try:
+        data = request.get_json(silent=True) or request.form
+        updates = {}
+        for field in ["name", "email", "company", "title", "linkedin_url",
+                       "relationship_strength", "tags", "notes"]:
+            val = data.get(field)
+            if val is not None:
+                updates[field] = val.strip() if isinstance(val, str) else val
+        freq = data.get("contact_frequency_days")
+        if freq:
+            updates["contact_frequency_days"] = int(freq)
+        update_contact(db, contact_id, **updates)
+        return "", 200
+    finally:
+        db.close()
+
+
+@app.route("/api/network/contacts/<int:contact_id>", methods=["DELETE"])
+def api_delete_contact(contact_id):
+    """Delete a contact."""
+    db = get_db()
+    try:
+        if delete_contact(db, contact_id):
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
+
+
+@app.route("/api/network/interaction", methods=["POST"])
+def api_log_interaction():
+    """Log a contact interaction."""
+    db = get_db()
+    try:
+        data = request.get_json(silent=True) or request.form
+        contact_id = int(data.get("contact_id"))
+        create_interaction(
+            db,
+            contact_id=contact_id,
+            interaction_date=date.fromisoformat(data.get("interaction_date", date.today().isoformat())),
+            interaction_type=data.get("interaction_type", "email"),
+            notes=(data.get("notes", "") or "").strip() or None,
+        )
+        interactions = get_interactions_for_contact(db, contact_id)
+        contact = get_contact(db, contact_id)
+        return render_template(
+            "network/contact_detail.html",
+            contact=contact,
+            interactions=interactions,
+            referrals=contact.referrals,
+        )
+    finally:
+        db.close()
+
+
+@app.route("/api/network/coffee-chat/<int:contact_id>", methods=["POST"])
+def api_coffee_chat(contact_id):
+    """Generate coffee chat request for a contact."""
+    db = get_db()
+    try:
+        contact = get_contact(db, contact_id)
+        if not contact:
+            abort(404)
+
+        # Get user background from most recent resume
+        background = "Experienced professional"  # fallback
+        manifest = _load_manifest()
+        resumes = manifest.get("resumes", [])
+        if resumes:
+            latest = resumes[-1]
+            path = os.path.join(UPLOADS_RESUMES_DIR, latest["stored_name"])
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    background = f.read()[:2000]
+
+        chat = generate_coffee_chat_request(
+            contact_name=contact.name,
+            contact_company=contact.company,
+            contact_title=contact.title,
+            user_background=background,
+            relationship=contact.relationship_strength,
+        )
+
+        return render_template("partials/coffee_chat.html", chat=chat)
+    finally:
+        db.close()
+
+
+@app.route("/api/network/referral/new", methods=["POST"])
+def api_create_referral():
+    """Create a referral tracking record."""
+    db = get_db()
+    try:
+        create_referral(
+            db,
+            application_id=int(request.form.get("application_id")),
+            contact_id=int(request.form.get("contact_id")),
+            referral_method=request.form.get("referral_method", "direct_intro"),
+            notes=request.form.get("notes", "").strip() or None,
+        )
+        return '<div class="notice">Referral tracked successfully.</div>'
+    finally:
+        db.close()
+
+
+@app.route("/api/network/referral/<int:referral_id>", methods=["PATCH"])
+def api_update_referral(referral_id):
+    """Update referral outcome."""
+    db = get_db()
+    try:
+        outcome = request.form.get("outcome", "pending")
+        result = track_referral_outcome(db, referral_id, outcome)
+        if not result:
+            abort(404)
+        return '<div class="notice">Referral updated. ' + '; '.join(result.get("actions", [])) + '</div>'
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# Follow-up generation routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/api/followup/generate", methods=["POST"])
+def api_generate_followup():
+    """Generate an AI-powered follow-up message."""
+    db = get_db()
+    try:
+        app_id = request.form.get("application_id")
+        followup_type = request.form.get("followup_type", "initial_check_in")
+
+        context = {}
+        if app_id:
+            app_record = get_application(db, int(app_id))
+            if app_record:
+                context.update({
+                    "company": app_record.company,
+                    "role": app_record.role,
+                    "days_since_applied": (date.today() - app_record.date_applied).days if app_record.date_applied else 0,
+                    "status": app_record.status,
+                })
+
+        # Additional context from form
+        for key in ["interviewer_name", "interview_notes", "offer_amount",
+                     "market_rate", "rejection_reason", "custom_instructions",
+                     "contact_name", "contact_company", "contact_title"]:
+            val = request.form.get(key)
+            if val:
+                if key in ("offer_amount", "market_rate"):
+                    try:
+                        context[key] = int(val)
+                    except ValueError:
+                        pass
+                else:
+                    context[key] = val
+
+        followup = generate_followup_message(followup_type, context)
+        return render_template("partials/followup_generated.html", followup=followup)
+    finally:
+        db.close()
+
+
+@app.route("/api/followup/suggest/<int:app_id>")
+def api_suggest_followups(app_id):
+    """Get suggested follow-up schedule for an application."""
+    db = get_db()
+    try:
+        app_record = get_application(db, app_id)
+        if not app_record:
+            abort(404)
+        suggestions = suggest_followup_schedule(
+            status=app_record.status,
+            application_method=app_record.application_method,
+            days_since_applied=(date.today() - app_record.date_applied).days if app_record.date_applied else 0,
+        )
+        return jsonify(suggestions)
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# A/B Testing routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/results/<job_id>/variants", methods=["POST"])
+def generate_job_variants(job_id):
+    """Generate A/B test variants for a pipeline job."""
+    job = jobs.get(job_id)
+    if not job or job["status"] != "done":
+        return '<div class="notice error">Job not found or not complete.</div>', 404
+
+    analysis = job.get("analysis")
+    tailored_latex = job.get("tailored_latex", "")
+    if not analysis:
+        return '<div class="notice error">No analysis data available.</div>', 400
+
+    # Convert analysis dataclass to dict
+    analysis_dict = {
+        "company_name": analysis.company_name,
+        "role_title": analysis.role_title,
+        "hard_skills": analysis.hard_skills,
+        "key_responsibilities": analysis.key_responsibilities,
+        "my_differentiators": analysis.my_differentiators,
+        "research_notes": analysis.research_notes,
+    }
+
+    variants = generate_variants(analysis_dict, tailored_latex)
+
+    # Save variants to database
+    db = get_db()
+    try:
+        for v in variants:
+            variant_record = create_variant(
+                db,
+                job_id=job_id,
+                variant_name=v["name"],
+                variant_description=v.get("description", ""),
+                cover_letter_text=v.get("cover_letter", ""),
+                cold_email_text=v.get("cold_email", ""),
+                linkedin_message_text=v.get("linkedin_message", ""),
+                strategy_prompt=v.get("strategy_prompt", ""),
+            )
+            v["db_id"] = variant_record.id
+            v["used"] = False
+            v["display_name"] = v.get("display_name", v["name"])
+
+        # Check for recommendation
+        recommendation = recommend_variant_for_job(db, analysis_dict)
+    finally:
+        db.close()
+
+    return render_template("partials/variants.html",
+                           variants=variants,
+                           recommendation=recommendation)
+
+
+@app.route("/api/variants/<int:variant_id>/mark_used", methods=["POST"])
+def api_mark_variant_used(variant_id):
+    """Mark a variant as the one that was actually sent."""
+    db = get_db()
+    try:
+        update_variant(db, variant_id, used=True)
+        return '<span class="badge badge-green">Marked as Used</span>'
+    finally:
+        db.close()
+
+
+@app.route("/api/variants/<int:variant_id>/outcome", methods=["POST"])
+def api_variant_outcome(variant_id):
+    """Record outcome for a variant."""
+    db = get_db()
+    try:
+        outcome = request.form.get("outcome", "no_response")
+        response_hours = request.form.get("response_time_hours")
+        updates = {"outcome": outcome, "response_received": outcome != "no_response"}
+        if response_hours:
+            updates["response_time_hours"] = int(response_hours)
+        update_variant(db, variant_id, **updates)
+        return '<div class="notice">Outcome recorded.</div>'
+    finally:
+        db.close()
+
+
+@app.route("/analytics/variants")
+def variant_analytics():
+    """A/B variant performance analytics page."""
+    db = get_db()
+    try:
+        analysis = analyze_variant_performance(db)
+        return render_template("tracker/analytics.html",
+                               analytics={"variant_analysis": analysis,
+                                           **get_extended_analytics(db)})
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# Settings routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/settings")
+def settings_page():
+    """Application settings page."""
+    db = get_db()
+    try:
+        settings = {}
+        for key in ["email_check_interval", "email_auto_update",
+                     "default_checkin_days", "default_thankyou_hours", "followup_tone",
+                     "network_warm_decay_days", "network_close_decay_days",
+                     "auto_generate_variants", "default_variant_count",
+                     "show_variant_recommendation"]:
+            settings[key] = get_setting(db, key)
+
+        providers = get_provider_status()
+
+        # Check OAuth connections
+        gmail_connected = False
+        gmail_email = ""
+        outlook_connected = False
+        outlook_email = ""
+        gmail_token = db.query(OAuthToken).filter_by(provider="gmail").first()
+        if gmail_token:
+            gmail_connected = True
+            gmail_email = gmail_token.email_address or "Connected"
+        outlook_token = db.query(OAuthToken).filter_by(provider="outlook").first()
+        if outlook_token:
+            outlook_connected = True
+            outlook_email = outlook_token.email_address or "Connected"
+
+        scheduler_jobs = get_job_status()
+
+        return render_template(
+            "settings/settings.html",
+            settings=settings,
+            providers=providers,
+            gmail_connected=gmail_connected,
+            gmail_email=gmail_email,
+            outlook_connected=outlook_connected,
+            outlook_email=outlook_email,
+            scheduler_jobs=scheduler_jobs,
+        )
+    finally:
+        db.close()
+
+
+@app.route("/settings/save", methods=["POST"])
+def settings_save():
+    """Save settings from form."""
+    db = get_db()
+    try:
+        for key in request.form:
+            value = request.form.get(key, "")
+            if key.endswith("_switch") or request.form.get(key) == "on":
+                value = "true"
+            set_setting(db, key, value)
+
+        # Handle checkboxes that aren't sent when unchecked
+        for cb in ["email_auto_update", "auto_generate_variants", "show_variant_recommendation"]:
+            if cb not in request.form:
+                set_setting(db, cb, "false")
+
+        return "", 200
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# OAuth routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/oauth/start/<provider>")
+def oauth_start(provider):
+    """Start OAuth flow for email provider."""
+    base_url = request.host_url.rstrip("/")
+    redirect_uri = f"{base_url}/oauth/callback/{provider}"
+
+    if provider == "gmail":
+        p = GmailProvider()
+    elif provider == "outlook":
+        p = OutlookProvider()
+    else:
+        abort(400)
+
+    if not p.is_configured:
+        return '<div class="notice error">Provider not configured. Check environment variables.</div>'
+
+    auth_url = p.get_auth_url(redirect_uri)
+    if not auth_url:
+        return '<div class="notice error">Failed to generate auth URL.</div>'
+
+    return f'<script>window.location.href="{auth_url}";</script>'
+
+
+@app.route("/oauth/callback/<provider>")
+def oauth_callback(provider):
+    """Handle OAuth callback."""
+    code = request.args.get("code")
+    if not code:
+        return '<div class="notice error">No authorization code received.</div>'
+
+    base_url = request.host_url.rstrip("/")
+    redirect_uri = f"{base_url}/oauth/callback/{provider}"
+
+    if provider == "gmail":
+        p = GmailProvider()
+    elif provider == "outlook":
+        p = OutlookProvider()
+    else:
+        abort(400)
+
+    tokens = p.authenticate(code, redirect_uri)
+    if not tokens:
+        return '<div class="notice error">Authentication failed.</div>'
+
+    db = get_db()
+    try:
+        # Remove existing token for this provider
+        existing = db.query(OAuthToken).filter_by(provider=provider).first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+
+        # Save new token
+        oauth = OAuthToken(
+            provider=provider,
+            access_token_encrypted=encrypt_token(tokens.get("access_token", "")),
+            refresh_token_encrypted=encrypt_token(tokens.get("refresh_token", "")),
+            token_expiry=datetime.fromisoformat(tokens["expiry"]) if tokens.get("expiry") else None,
+        )
+        db.add(oauth)
+        db.commit()
+    finally:
+        db.close()
+
+    return '<script>window.location.href="/settings";</script>'
+
+
+@app.route("/settings/email/disconnect/<provider>", methods=["POST"])
+def email_disconnect(provider):
+    """Disconnect email provider."""
+    db = get_db()
+    try:
+        token = db.query(OAuthToken).filter_by(provider=provider).first()
+        if token:
+            db.delete(token)
+            db.commit()
+        return "", 200
+    finally:
+        db.close()
+
+
+# ─────────────────────────────────────────────────────────
+# Email review routes
+# ─────────────────────────────────────────────────────────
+
+@app.route("/api/email/review")
+def email_review():
+    """Get unconfirmed email matches for review."""
+    db = get_db()
+    try:
+        unconfirmed = get_unconfirmed_matches(db)
+        items = []
+        for em in unconfirmed:
+            items.append({
+                "id": em.id,
+                "subject": em.subject,
+                "sender": em.sender_name or em.sender_email,
+                "date": em.received_date.isoformat() if em.received_date else "",
+                "stage": em.detected_stage,
+                "confidence": f"{em.confidence_score:.0%}" if em.confidence_score else "N/A",
+                "matched_app": em.application.company if em.application else "Unmatched",
+            })
+        return jsonify(items)
+    finally:
+        db.close()
+
+
+@app.route("/api/email/confirm/<int:tracking_id>", methods=["POST"])
+def email_confirm_match(tracking_id):
+    """Confirm auto-matched email."""
+    db = get_db()
+    try:
+        em = db.query(EmailTracking).filter_by(id=tracking_id).first()
+        if em:
+            em.user_confirmed = True
+            db.commit()
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
+
+
+@app.route("/api/email/reject/<int:tracking_id>", methods=["POST"])
+def email_reject_match(tracking_id):
+    """Reject auto-matched email."""
+    db = get_db()
+    try:
+        em = db.query(EmailTracking).filter_by(id=tracking_id).first()
+        if em:
+            em.user_confirmed = False
+            em.auto_matched = False
+            em.application_id = None
+            db.commit()
+            return "", 200
+        abort(404)
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
